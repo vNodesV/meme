@@ -1,12 +1,12 @@
 module github.com/CosmWasm/wasmd
 
-go 1.19
+go 1.20
 
 require (
 	github.com/CosmWasm/wasmvm v1.0.1
-	github.com/cosmos/cosmos-sdk v0.45.12
+	github.com/cosmos/cosmos-sdk v0.47.6
 	github.com/cosmos/iavl v0.19.4
-	github.com/cosmos/ibc-go/v2 v2.5.0
+	github.com/cosmos/ibc-go/v7 v7.3.1
 	github.com/dvsekhvalnov/jose2go v1.5.0
 	github.com/gogo/protobuf v1.3.3
 	github.com/golang/protobuf v1.5.2
@@ -24,8 +24,8 @@ require (
 	github.com/spf13/viper v1.14.0
 	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
-	github.com/tendermint/tendermint v0.34.24
-	github.com/tendermint/tm-db v0.6.7
+	github.com/cometbft/cometbft v0.37.2
+	github.com/cometbft/cometbft-db v0.7.0
 	google.golang.org/genproto v0.0.0-20221024183307-1bc688fe9f3e
 	google.golang.org/grpc v1.50.1
 	gopkg.in/yaml.v2 v2.4.0
@@ -133,5 +133,4 @@ replace (
 	// latest grpc doesn't work with with our modified proto compiler, so we need to enforce
 	// the following version across all dependencies.
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	google.golang.org/grpc => google.golang.org/grpc v1.33.2
 )
