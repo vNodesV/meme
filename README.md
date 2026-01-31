@@ -8,7 +8,9 @@ https://github.com/memecosmos/meme/releases/tag/v2.0.8
 New version list:
 | Go     | Cosmos SDK   | wasmd | wasmvm       | cosmwasm-std | ibc      | 
 | ------ | ------------ | ----- | ------------ | ------------ |--------- |
-| v1.8.5 | v0.45.6      | 0.28  | v1.0.0       | 1.0          | v3.0.0   |
+| v1.22  | v0.45.16     | 0.28  | v1.0.1       | 1.0          | v2.5.0   |
+
+Consensus engine: CometBFT v0.34.34 (Tendermint 0.34.x replacement with security patches).
 
 Support Interchain account, Export and StoreKey bug fix.
 
@@ -301,4 +303,3 @@ memed start
 - [Cosmos SDK documentation](https://docs.cosmos.network)
 - [Cosmos SDK Tutorials](https://tutorials.cosmos.network)
 - [Discord](https://discord.com/invite/pAXqq5dVD9)
-
