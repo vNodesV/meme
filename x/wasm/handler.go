@@ -3,8 +3,8 @@ package wasm
 import (
 	"fmt"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/gogo/protobuf/proto"
-	abci "github.com/tendermint/tendermint/abci/types"
 
 	"github.com/CosmWasm/wasmd/x/wasm/keeper"
 	"github.com/CosmWasm/wasmd/x/wasm/types"
