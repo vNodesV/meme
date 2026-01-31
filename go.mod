@@ -6,7 +6,6 @@ require (
 	github.com/CosmWasm/wasmvm v1.0.1
 	github.com/cosmos/cosmos-sdk v0.45.16
 	github.com/cosmos/iavl v0.19.5
-	github.com/cometbft/cometbft v0.34.34
 	github.com/cosmos/ibc-go/v2 v2.5.0
 	github.com/dvsekhvalnov/jose2go v1.5.0
 	github.com/gogo/protobuf v1.3.3
