@@ -2,9 +2,9 @@
 #set -o errexit -o nounset -o pipefail
 
 PASSWORD=${PASSWORD:-1234567890}
-STAKE=${STAKE_TOKEN:-ustake}
-FEE=${FEE_TOKEN:-ucosm}
-CHAIN_ID=${CHAIN_ID:-testing}
+STAKE=${STAKE_TOKEN:-umeme}
+FEE=${FEE_TOKEN:-umeme}
+CHAIN_ID=${CHAIN_ID:-meme-local-1}
 MONIKER=${MONIKER:-node001}
 KEYRING="--keyring-backend test"
 
@@ -26,6 +26,8 @@ else
   sed -i 's/"time_iota_ms": "1000"/"time_iota_ms": "10"/' "$GENESIS_FILE"
   sed -i 's/"max_gas": "-1"/"max_gas": "'"$BLOCK_GAS_LIMIT"'"/' "$GENESIS_FILE"
   sed -i 's/keyring-backend = "os"/keyring-backend = "test"/' "$CLIENT_FILE"
+  sed -i 's/^chain-id = .*/chain-id = "'"$CHAIN_ID"'"/' "$CLIENT_FILE"
+  sed -i 's/^minimum-gas-prices = .*/minimum-gas-prices = "0.025'"$STAKE"'"/' "$APP_FILE"
 fi
 
 
@@ -51,4 +53,3 @@ echo "$PASSWORD" | memed add-genesis-account validator "1000000000$STAKE,1000000
   memed collect-gentxs
 
 fi
-

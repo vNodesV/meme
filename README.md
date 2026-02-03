@@ -5,10 +5,10 @@
 * DO NOT USE ON MAINNET
 https://github.com/memecosmos/meme/releases/tag/v2.0.8
 
-New version list:
-| Go     | Cosmos SDK   | wasmd | wasmvm       | cosmwasm-std | ibc      | 
-| ------ | ------------ | ----- | ------------ | ------------ |--------- |
-| v1.22  | v0.45.16     | 0.28  | v1.0.1       | 1.0          | v2.5.0   |
+Version list (from `go.mod`):
+| Go     | Cosmos SDK   | wasmd (this repo) | wasmvm | ibc-go  |
+| ------ | ------------ | ----------------- | ------ | ------- |
+| v1.22  | v0.47.13     | vN_1.0.0           | v1.0.1 | v7.10.0 |
 
 Consensus engine: CometBFT v0.34.34 (Tendermint 0.34.x replacement with security patches).
 
@@ -54,6 +54,23 @@ https://nodeservice.nodersteam.com/title/mainnet/meme
 
 ## Full chain setup guidelines
 
+### Local dev/testing (meme-local-1, umeme)
+Defaults for local testing are:
+- `chain-id`: `meme-local-1`
+- `bond/mint/fee denom`: `umeme`
+
+Build/install the binary:
+```bash:
+make build
+make install
+```
+
+Docker localnet (uses the defaults above):
+```bash:
+./scripts/build.sh
+./scripts/run_blocking.sh
+```
+
 
 #### 1. Prerequisites
 ```bash:
@@ -70,7 +87,7 @@ Follow the instructions [here](https://golang.org/doc/install) to install Go.
 Alternatively, for Ubuntu LTS, you can do:
 ```bash:
 
-wget -q -O - https://git.io/vQhTU | bash -s -- --version 1.17.8
+wget -q -O - https://git.io/vQhTU | bash -s -- --version 1.22.0
 source ~/.bashrc
 
 ```
@@ -87,7 +104,7 @@ EOF
 source ~/.profile
 go version
 ```
-Output should be: `go version go1.17.8 linux/amd64`
+Output should be: `go version go1.22.0 linux/amd64`
 
 ### 3. Download memed binary
 
