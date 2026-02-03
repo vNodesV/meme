@@ -160,7 +160,11 @@ replace (
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 	// Use CometBFT for Tendermint 0.34.x compatibility and security patches.
 	github.com/tendermint/tendermint => github.com/cometbft/cometbft v0.34.34
-	google.golang.org/grpc => google.golang.org/grpc v1.33.2
 	// Keep simapp imports on the cosmos-sdk v0.47.x module (avoid new cosmossdk.io/simapp path).
 	github.com/cosmos/cosmos-sdk/simapp => github.com/cosmos/cosmos-sdk v0.47.13
+	// Pin Cosmos SDK submodules to v0.47.x (avoid newer module splits removing legacy packages).
+	github.com/cosmos/cosmos-sdk/x/auth => github.com/cosmos/cosmos-sdk v0.47.13
+	github.com/cosmos/cosmos-sdk/x/distribution => github.com/cosmos/cosmos-sdk v0.47.13
+	github.com/cosmos/cosmos-sdk/x/gov => github.com/cosmos/cosmos-sdk v0.47.13
+	github.com/cosmos/cosmos-sdk/x/staking => github.com/cosmos/cosmos-sdk v0.47.13
 )
