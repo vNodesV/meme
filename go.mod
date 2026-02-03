@@ -161,4 +161,6 @@ replace (
 	// Use CometBFT for Tendermint 0.34.x compatibility and security patches.
 	github.com/tendermint/tendermint => github.com/cometbft/cometbft v0.34.34
 	google.golang.org/grpc => google.golang.org/grpc v1.33.2
+	// Keep simapp imports on the cosmos-sdk v0.47.x module (avoid new cosmossdk.io/simapp path).
+	github.com/cosmos/cosmos-sdk/simapp => github.com/cosmos/cosmos-sdk v0.47.13
 )
