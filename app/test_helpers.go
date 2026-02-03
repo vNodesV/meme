@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"testing"
 	"time"
@@ -26,9 +27,11 @@ import (
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/cosmos/cosmos-sdk/simapp/helpers"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/errors"
+	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	authsign "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -327,6 +330,7 @@ func CheckBalance(t *testing.T, app *WasmApp, addr sdk.AccAddress, balances sdk.
 }
 
 const DefaultGas = 1200000
+const DefaultGenTxGas = 10000000
 
 // SignCheckDeliver checks a generated signed transaction and simulates a
 // block commitment with the given transaction. A test assertion is made using
@@ -337,7 +341,7 @@ func SignCheckDeliver(
 	chainID string, accNums, accSeqs []uint64, expSimPass, expPass bool, priv ...cryptotypes.PrivKey,
 ) (sdk.GasInfo, *sdk.Result, error) {
 
-	tx, err := helpers.GenTx(
+	tx, err := genTx(
 		txCfg,
 		msgs,
 		sdk.Coins{sdk.NewInt64Coin(sdk.DefaultBondDenom, 0)},
@@ -387,7 +391,7 @@ func SignAndDeliver(
 	chainID string, accNums, accSeqs []uint64, expSimPass, expPass bool, priv ...cryptotypes.PrivKey,
 ) (sdk.GasInfo, *sdk.Result, error) {
 
-	tx, err := helpers.GenTx(
+	tx, err := genTx(
 		txCfg,
 		msgs,
 		sdk.Coins{sdk.NewInt64Coin(sdk.DefaultBondDenom, 0)},
@@ -424,11 +428,11 @@ func GenSequenceOfTxs(txGen client.TxConfig, msgs []sdk.Msg, accNums []uint64, i
 	txs := make([]sdk.Tx, numToGenerate)
 	var err error
 	for i := 0; i < numToGenerate; i++ {
-		txs[i], err = helpers.GenTx(
+		txs[i], err = genTx(
 			txGen,
 			msgs,
 			sdk.Coins{sdk.NewInt64Coin(sdk.DefaultBondDenom, 0)},
-			helpers.DefaultGenTxGas,
+			DefaultGenTxGas,
 			"",
 			accNums,
 			initSeqNums,
@@ -447,6 +451,71 @@ func incrementAllSequenceNumbers(initSeqNums []uint64) {
 	for i := 0; i < len(initSeqNums); i++ {
 		initSeqNums[i]++
 	}
+}
+
+func genTx(gen client.TxConfig, msgs []sdk.Msg, feeAmt sdk.Coins, gas uint64, chainID string, accNums, accSeqs []uint64, priv ...cryptotypes.PrivKey) (sdk.Tx, error) {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return genSignedMockTx(rng, gen, msgs, feeAmt, gas, chainID, accNums, accSeqs, priv...)
+}
+
+func genSignedMockTx(
+	rng *rand.Rand,
+	gen client.TxConfig,
+	msgs []sdk.Msg,
+	feeAmt sdk.Coins,
+	gas uint64,
+	chainID string,
+	accNums,
+	accSeqs []uint64,
+	priv ...cryptotypes.PrivKey,
+) (sdk.Tx, error) {
+	sigs := make([]signing.SignatureV2, len(priv))
+	memo := simtypes.RandStringOfLength(rng, simtypes.RandIntBetween(rng, 0, 100))
+	signMode := gen.SignModeHandler().DefaultMode()
+
+	for i, p := range priv {
+		sigs[i] = signing.SignatureV2{
+			PubKey: p.PubKey(),
+			Data: &signing.SingleSignatureData{
+				SignMode: signMode,
+			},
+			Sequence: accSeqs[i],
+		}
+	}
+
+	tx := gen.NewTxBuilder()
+	if err := tx.SetMsgs(msgs...); err != nil {
+		return nil, err
+	}
+	if err := tx.SetSignatures(sigs...); err != nil {
+		return nil, err
+	}
+
+	tx.SetMemo(memo)
+	tx.SetFeeAmount(feeAmt)
+	tx.SetGasLimit(gas)
+
+	for i, p := range priv {
+		signerData := authsign.SignerData{
+			ChainID:       chainID,
+			AccountNumber: accNums[i],
+			Sequence:      accSeqs[i],
+		}
+		signBytes, err := gen.SignModeHandler().GetSignBytes(signMode, signerData, tx.GetTx())
+		if err != nil {
+			return nil, err
+		}
+		sig, err := p.Sign(signBytes)
+		if err != nil {
+			return nil, err
+		}
+		sigs[i].Data.(*signing.SingleSignatureData).Signature = sig
+		if err := tx.SetSignatures(sigs...); err != nil {
+			return nil, err
+		}
+	}
+
+	return tx.GetTx(), nil
 }
 
 // CreateTestPubKeys returns a total of numPubKeys public keys in ascending order.

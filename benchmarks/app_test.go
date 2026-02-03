@@ -3,6 +3,7 @@ package benchmarks
 import (
 	"encoding/json"
 	"io/ioutil"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -15,9 +16,10 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	"github.com/cosmos/cosmos-sdk/simapp/helpers"
-	simappparams "github.com/cosmos/cosmos-sdk/simapp/params"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	authsign "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
@@ -115,7 +117,7 @@ func InitializeWasmApp(b testing.TB, db dbm.DB, numAccounts int) AppInfo {
 
 	// add wasm contract
 	height := int64(2)
-	txGen := simappparams.MakeTestEncodingConfig().TxConfig
+	txGen := app.MakeEncodingConfig().TxConfig
 	wasmApp.BeginBlock(abci.RequestBeginBlock{Header: tmproto.Header{Height: height, Time: time.Now()}})
 
 	// upload the code
@@ -125,7 +127,7 @@ func InitializeWasmApp(b testing.TB, db dbm.DB, numAccounts int) AppInfo {
 		Sender:       addr.String(),
 		WASMByteCode: cw20Code,
 	}
-	storeTx, err := helpers.GenTx(txGen, []sdk.Msg{&storeMsg}, nil, 55123123, "", []uint64{0}, []uint64{0}, minter)
+	storeTx, err := genTx(txGen, []sdk.Msg{&storeMsg}, nil, 55123123, "", []uint64{0}, []uint64{0}, minter)
 	require.NoError(b, err)
 	_, res, err := wasmApp.Deliver(txGen.TxEncoder(), storeTx)
 	require.NoError(b, err)
@@ -159,7 +161,7 @@ func InitializeWasmApp(b testing.TB, db dbm.DB, numAccounts int) AppInfo {
 		Msg:    initBz,
 	}
 	gasWanted := 500000 + 10000*uint64(numAccounts)
-	initTx, err := helpers.GenTx(txGen, []sdk.Msg{&initMsg}, nil, gasWanted, "", []uint64{0}, []uint64{1}, minter)
+	initTx, err := genTx(txGen, []sdk.Msg{&initMsg}, nil, gasWanted, "", []uint64{0}, []uint64{1}, minter)
 	require.NoError(b, err)
 	_, res, err = wasmApp.Deliver(txGen.TxEncoder(), initTx)
 	require.NoError(b, err)
@@ -180,7 +182,7 @@ func InitializeWasmApp(b testing.TB, db dbm.DB, numAccounts int) AppInfo {
 		Denom:        denom,
 		AccNum:       0,
 		SeqNum:       2,
-		TxConfig:     simappparams.MakeTestEncodingConfig().TxConfig,
+		TxConfig:     app.MakeEncodingConfig().TxConfig,
 	}
 }
 
@@ -191,7 +193,7 @@ func GenSequenceOfTxs(b testing.TB, info *AppInfo, msgGen func(*AppInfo) ([]sdk.
 	for i := 0; i < numToGenerate; i++ {
 		msgs, err := msgGen(info)
 		require.NoError(b, err)
-		txs[i], err = helpers.GenTx(
+		txs[i], err = genTx(
 			info.TxConfig,
 			msgs,
 			fees,
@@ -206,4 +208,68 @@ func GenSequenceOfTxs(b testing.TB, info *AppInfo, msgGen func(*AppInfo) ([]sdk.
 	}
 
 	return txs
+}
+
+func genTx(gen client.TxConfig, msgs []sdk.Msg, feeAmt sdk.Coins, gas uint64, chainID string, accNums, accSeqs []uint64, priv ...*secp256k1.PrivKey) (sdk.Tx, error) {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return genSignedMockTx(rng, gen, msgs, feeAmt, gas, chainID, accNums, accSeqs, priv...)
+}
+
+func genSignedMockTx(
+	rng *rand.Rand,
+	gen client.TxConfig,
+	msgs []sdk.Msg,
+	feeAmt sdk.Coins,
+	gas uint64,
+	chainID string,
+	accNums,
+	accSeqs []uint64,
+	priv ...*secp256k1.PrivKey,
+) (sdk.Tx, error) {
+	sigs := make([]signing.SignatureV2, len(priv))
+	memo := simtypes.RandStringOfLength(rng, simtypes.RandIntBetween(rng, 0, 100))
+	signMode := gen.SignModeHandler().DefaultMode()
+
+	for i, p := range priv {
+		sigs[i] = signing.SignatureV2{
+			PubKey: p.PubKey(),
+			Data: &signing.SingleSignatureData{
+				SignMode: signMode,
+			},
+			Sequence: accSeqs[i],
+		}
+	}
+
+	tx := gen.NewTxBuilder()
+	if err := tx.SetMsgs(msgs...); err != nil {
+		return nil, err
+	}
+	if err := tx.SetSignatures(sigs...); err != nil {
+		return nil, err
+	}
+	tx.SetMemo(memo)
+	tx.SetFeeAmount(feeAmt)
+	tx.SetGasLimit(gas)
+
+	for i, p := range priv {
+		signerData := authsign.SignerData{
+			ChainID:       chainID,
+			AccountNumber: accNums[i],
+			Sequence:      accSeqs[i],
+		}
+		signBytes, err := gen.SignModeHandler().GetSignBytes(signMode, signerData, tx.GetTx())
+		if err != nil {
+			return nil, err
+		}
+		sig, err := p.Sign(signBytes)
+		if err != nil {
+			return nil, err
+		}
+		sigs[i].Data.(*signing.SingleSignatureData).Signature = sig
+		if err := tx.SetSignatures(sigs...); err != nil {
+			return nil, err
+		}
+	}
+
+	return tx.GetTx(), nil
 }
