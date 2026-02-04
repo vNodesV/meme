@@ -2,6 +2,8 @@ module github.com/CosmWasm/wasmd
 
 go 1.22.0
 
+toolchain go1.22.0
+
 require (
 	github.com/CosmWasm/wasmvm v1.0.1
 	github.com/cometbft/cometbft v0.37.5
