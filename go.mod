@@ -31,6 +31,10 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
+require golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
+
+replace golang.org/x/exp => golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb
+
 require (
 	cloud.google.com/go v0.112.1 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
@@ -177,7 +181,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.40.0 // indirect
-	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0 // indirect
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/oauth2 v0.22.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
