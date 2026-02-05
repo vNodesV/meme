@@ -8,7 +8,7 @@ This plan delivers a staged, in-place upgrade for meme-1 that preserves CosmWasm
 
 | Hop | Go | Cosmos SDK | Consensus (Tendermint/CometBFT) | IBC-Go | Wasmd | WasmVM | DB (cometbft-db) | gRPC/Proto toolchain |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Hop 1 (live → intermediate) | 1.23.2 (repo toolchain requirement) | 0.47.13 (repo baseline) | CometBFT 0.37.5 | ibc-go/v7 7.10.0 | wasmd 0.45.x-compatible (current repo) | wasmvm 1.0.1 | cometbft-db 0.9.5 | buf + gogoproto + grpc-gateway v1 |
+| Hop 1 (live → intermediate) | 1.22.10 (matches live build) | 0.47.13 (repo baseline) | CometBFT 0.37.5 | ibc-go/v7 7.10.0 | wasmd 0.45.x-compatible (current repo) | wasmvm 1.0.1 | cometbft-db 0.9.5 | buf + gogoproto + grpc-gateway v1 |
 | Hop 2 (intermediate → final) | 1.22.10+ | 0.53.x | CometBFT >= 0.38.21 | ibc-go/v10.x | wasmd 0.54+ | wasmvm 2.x (matching wasmd) | cometbft-db 0.9.x/0.10.x | buf + protoc-gen-go v1.34+ + grpc-gateway v2 |
 
 ## 3) Staged migration plan (commands + ordering)
