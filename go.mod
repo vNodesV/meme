@@ -10,7 +10,7 @@ require (
 	cosmossdk.io/x/feegrant v0.2.0
 	cosmossdk.io/x/upgrade v0.2.0
 	github.com/CosmWasm/wasmvm v1.5.9
-	github.com/cometbft/cometbft v0.38.21
+	github.com/cometbft/cometbft v0.39.0-beta.2
 	github.com/cometbft/cometbft-db v0.14.1
 	github.com/cosmos/cosmos-sdk v0.53.5
 	github.com/cosmos/iavl v1.2.6
@@ -253,6 +253,7 @@ replace (
 	cosmossdk.io/store => github.com/cosmos/cosmos-sdk/store v1.3.0-beta.0
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
+	github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.38.21
 	// dgrijalva/jwt-go is deprecated and doesn't receive security updates.
 	// TODO: remove it: https://github.com/cosmos/cosmos-sdk/issues/13134
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.2
@@ -264,4 +265,5 @@ replace (
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	// BlockSTM requires patches to the btree package
 	github.com/tidwall/btree => github.com/cosmos/btree v0.0.0-20250924232609-2c6195d95951
+
 )
