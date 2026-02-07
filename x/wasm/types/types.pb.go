@@ -6,11 +6,11 @@ package types
 import (
 	bytes "bytes"
 	fmt "fmt"
-	github_com_tendermint_tendermint_libs_bytes "github.com/cometbft/cometbft/libs/bytes"
 	types "github.com/cosmos/cosmos-sdk/codec/types"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	_ "github.com/regen-network/cosmos-proto"
+	github_com_tendermint_tendermint_libs_bytes "github.com/tendermint/tendermint/libs/bytes"
 	io "io"
 	math "math"
 	math_bits "math/bits"
@@ -396,7 +396,7 @@ var xxx_messageInfo_AbsoluteTxPosition proto.InternalMessageInfo
 // Model is a struct that holds a KV pair
 type Model struct {
 	// hex-encode key to read it better (this is often ascii)
-	Key github_com_tendermint_tendermint_libs_bytes.HexBytes `protobuf:"bytes,1,opt,name=key,proto3,casttype=github.com/cometbft/cometbft/libs/bytes.HexBytes" json:"key,omitempty"`
+	Key github_com_tendermint_tendermint_libs_bytes.HexBytes `protobuf:"bytes,1,opt,name=key,proto3,casttype=github.com/tendermint/tendermint/libs/bytes.HexBytes" json:"key,omitempty"`
 	// base64-encode raw value
 	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 }

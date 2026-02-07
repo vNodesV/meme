@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 
 	"github.com/CosmWasm/wasmd/x/wasm/keeper/wasmtesting"
 	"github.com/CosmWasm/wasmd/x/wasm/types"
@@ -313,7 +313,7 @@ func TestInstantiate(t *testing.T) {
 
 	gasAfter := ctx.GasMeter().GasConsumed()
 	if types.EnableGasVerification {
-		//	require.Equal(t, uint64(0x18dab), gasAfter-gasBefore)
+	//	require.Equal(t, uint64(0x18dab), gasAfter-gasBefore)
 		require.Equal(t, uint64(0x18db5), gasAfter-gasBefore)
 	}
 
