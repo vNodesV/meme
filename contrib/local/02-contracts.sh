@@ -1,3 +1,4 @@
+DENOM=${DENOM:-${STAKE_TOKEN:-umeme}}
 #!/bin/bash
 set -o errexit -o nounset -o pipefail
 
@@ -22,7 +23,7 @@ echo "-----------------------"
 echo "## Create new contract instance"
 INIT="{\"verifier\":\"$(wasmd keys show validator -a)\", \"beneficiary\":\"$(wasmd keys show fred -a)\"}"
 wasmd tx wasm instantiate "$CODE_ID" "$INIT" --admin="$(wasmd keys show validator -a)" \
-  --from validator --amount="100${DENOM:-umeme}" --label "local0.1.0" \
+  --from validator --amount="100${DENOM}" --label "local0.1.0" \
   --gas 1000000 -y --chain-id=testing -b block -o json | jq
 
 CONTRACT=$(wasmd query wasm list-contract-by-code "$CODE_ID" -o json | jq -r '.contracts[-1]')

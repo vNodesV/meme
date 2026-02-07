@@ -11,7 +11,6 @@ display_usage() {
 
 KEYRING=--keyring-backend="test"
 SILENT=1
-DENOM=${DENOM:-umeme}
 
 redirect() {
   if [ "$SILENT" -eq 1 ]; then
@@ -66,9 +65,9 @@ if ! mkdir -p $CHAINDIR/$CHAINID 2>/dev/null; then
 fi
 
 # Build genesis file incl account for passed address
-chain_one_coins="100000000000${DENOM},100000000000umuon,100000000000test"
-chain_two_coins="100000000000${DENOM},100000000000umuon"
-delegate="100000000000${DENOM}"
+chain_one_coins="100000000000stake,100000000000umuon,100000000000test"
+chain_two_coins="100000000000stake,100000000000umuon"
+delegate="100000000000stake"
 
 redirect $BINARY --home $CHAINDIR/$CHAINID --chain-id $CHAINID init $CHAINID
 sleep 1

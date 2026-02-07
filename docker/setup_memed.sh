@@ -9,6 +9,28 @@ MONIKER=${MONIKER:-node001}
 KEYRING="--keyring-backend test"
 
 # check the genesis file
+
+patch_genesis_denom() {
+  # Patches denom fields in genesis to $1 (e.g. umeme) in a targeted way.
+  # Uses jq when available; falls back to sed for common patterns.
+  GENESIS_FILE="$1"
+  DENOM="$2"
+
+  if command -v jq >/dev/null 2>&1; then
+    tmp="${GENESIS_FILE}.tmp"
+    jq --arg d "$DENOM" '
+      (.app_state.staking.params.bond_denom) = $d
+      | (.app_state.mint.params.mint_denom) = $d
+      | (.app_state.crisis.constant_fee.denom) = $d
+      | (.app_state.gov.deposit_params.min_deposit[]?.denom) = $d
+    ' "$GENESIS_FILE" > "$tmp" && mv "$tmp" "$GENESIS_FILE"
+  else
+    sed -i "s/\"bond_denom\": \"stake\"/\"bond_denom\": \"${DENOM}\"/g" "$GENESIS_FILE" 2>/dev/null || true
+    sed -i "s/\"mint_denom\": \"stake\"/\"mint_denom\": \"${DENOM}\"/g" "$GENESIS_FILE" 2>/dev/null || true
+    sed -i "s/\"denom\": \"stake\"/\"denom\": \"${DENOM}\"/g" "$GENESIS_FILE" 2>/dev/null || true
+  fi
+}
+
 GENESIS_FILE="$HOME"/.memed/config/genesis.json
 CLIENT_FILE="$HOME"/.memed/config/client.toml
 APP_FILE="$HOME"/.memed/config/app.toml
@@ -20,7 +42,7 @@ else
   echo "$GENESIS_FILE does not exist. Generating..."
 
   memed init --chain-id "$CHAIN_ID" "$MONIKER"
-  # staking/governance token is hardcoded in config, change this
+  # staking/governance token is hardcoded in genesis, patch denom fields
   sed -i "s/\"stake\"/\"$STAKE\"/" "$GENESIS_FILE"
   # this is essential for sub-1s block times (or header times go crazy)
   sed -i 's/"time_iota_ms": "1000"/"time_iota_ms": "10"/' "$GENESIS_FILE"
