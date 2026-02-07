@@ -4,7 +4,7 @@ GOTOOLCHAIN ?= go1.23.2
 GO_CMD = GOTOOLCHAIN=$(GOTOOLCHAIN) go
 
 PACKAGES_SIMTEST=$(shell $(GO_CMD) list ./... | grep '/simulation')
-VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
+VERSION := $(shell echo $(shell git describe --tags --always --dirty) | sed 's/^v//')
 #VERSION := v1.0.1
 COMMIT := $(shell git log -1 --format='%H')
 LEDGER_ENABLED ?= true
