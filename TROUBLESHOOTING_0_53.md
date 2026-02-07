@@ -2,7 +2,8 @@
 
 This note maps the reported `go mod tidy` errors to concrete fixes and the
 underlying migration tasks required for a successful Cosmos SDK v0.53.x + IBC
-v10 upgrade.
+v10 upgrade. It intentionally references `github.com/cosmos/cosmos-sdk` as the
+source of truth rather than `cosmossdk.io`.
 
 ## Root cause summary
 
@@ -12,9 +13,8 @@ SDK/IBC v10 stack:
 - Legacy REST packages were removed (auth/gov REST, `types/rest`, Swagger statik).
 - IBC v10 removed the `capability` module and **ScopedKeeper** wiring.
 - `tmservice` moved to `cmtservice` and CometBFT replaced Tendermint.
-- SDK `x/*` modules are now split between `github.com/cosmos/cosmos-sdk/x/*` and
-  `cosmossdk.io/x/*` depending on the module (e.g., `evidence`, `feegrant`,
-  `upgrade` are split).
+- SDK `x/*` modules should be sourced from `github.com/cosmos/cosmos-sdk/x/*`
+  to avoid module split ambiguity when migrating to v0.53.x.
 - Governance v1 uses **message routing** (not v1beta1 proposal handlers) for
   most modules; proposal handler lists shrink.
 - `simapp` is external and now requires newer Go; tests must be refactored or
@@ -22,7 +22,7 @@ SDK/IBC v10 stack:
 
 ## Error-by-error fixes
 
-### `cosmossdk.io/x/auth/client/rest` / `cosmossdk.io/x/gov/client/rest`
+### `github.com/cosmos/cosmos-sdk/x/auth/client/rest` / `github.com/cosmos/cosmos-sdk/x/gov/client/rest`
 **Fix:** Remove REST handlers and legacy REST routes. SDK v0.53 does not expose
 legacy REST endpoints. Replace with gRPC Gateway routes.
 
@@ -52,7 +52,7 @@ exposes the old `client` package.
 ### `github.com/cosmos/cosmos-sdk/types/rest`
 **Fix:** Remove usage; legacy REST removed.
 
-### `cosmossdk.io/x/staking/teststaking`
+### `github.com/cosmos/cosmos-sdk/x/staking/teststaking`
 **Fix:** Replace with local helper that converts staking validators to CometBFT
 validators using `cryptocodec.ToCmtPubKeyInterface`, or use the new
 `cosmos-sdk/testutil` helpers if you refactor tests.
@@ -70,9 +70,10 @@ protobufs to use standard gRPC imports.
 ### `cosmossdk.io/core/legacy` / `cosmossdk.io/core/appconfig`
 **Fix:** Pin `cosmossdk.io/core` to the **SDK v0.53.5** version
 (`cosmossdk.io/core v0.11.3`) and align all SDK split modules to the same
-version set. Avoid the `cosmossdk.io` meta-module.
+version set. Avoid the `cosmossdk.io` meta-module while sourcing modules from
+`github.com/cosmos/cosmos-sdk`.
 
-### `cosmossdk.io/x/consensus/types`
+### `github.com/cosmos/cosmos-sdk/x/consensus/types`
 **Fix:** Use the SDK v0.53 `x/consensus` module from the main SDK repository
 (`github.com/cosmos/cosmos-sdk/x/consensus`).
 
