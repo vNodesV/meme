@@ -1,6 +1,7 @@
 module github.com/CosmWasm/wasmd
 
-go 1.23.8
+go 1.25.7
+toolchain go1.25.7
 
 require (
 	github.com/CosmWasm/wasmvm v1.5.9
@@ -39,7 +40,8 @@ replace (
 )
 
 require (
-	cosmossdk.io/core v0.12.1-0.20240725072823-6a2d039e1212 // indirect
+	github.com/cosmos/cosmos-sdk/core v0.12.1-0.20240725072823-6a2d039e1212 // indirect
+	// cosmossdk.io/core v0.12.1-0.20240725072823-6a2d039e1212 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/99designs/keyring v1.2.2 // indirect
 	github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d // indirect
