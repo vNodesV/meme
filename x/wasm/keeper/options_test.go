@@ -3,10 +3,10 @@ package keeper
 import (
 	"testing"
 
-	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
-	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
-	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	authkeeper "cosmossdk.io/x/auth/keeper"
+	distributionkeeper "cosmossdk.io/x/distribution/keeper"
+	paramtypes "cosmossdk.io/x/params/types"
+	stakingkeeper "cosmossdk.io/x/staking/keeper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
