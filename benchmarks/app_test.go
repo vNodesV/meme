@@ -1,3 +1,6 @@
+//go:build simapp
+// +build simapp
+
 package benchmarks
 
 import (
@@ -8,18 +11,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/libs/log"
-	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
-	dbm "github.com/tendermint/tm-db"
+	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/libs/log"
+	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	dbm "github.com/cometbft/cometbft-db"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/simapp/helpers"
 	simappparams "github.com/cosmos/cosmos-sdk/simapp/params"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	authtypes "cosmossdk.io/x/auth/types"
+	banktypes "cosmossdk.io/x/bank/types"
 
 	"github.com/CosmWasm/wasmd/app"
 	"github.com/CosmWasm/wasmd/x/wasm"

@@ -13,8 +13,8 @@ import (
 	"github.com/CosmWasm/wasmd/x/wasm/keeper/wasmtesting"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	"github.com/cosmos/cosmos-sdk/x/params/types/proposal"
+	govtypes "cosmossdk.io/x/gov/types"
+	"cosmossdk.io/x/params/types/proposal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

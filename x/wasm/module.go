@@ -17,7 +17,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
-	abci "github.com/tendermint/tendermint/abci/types"
+	abci "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/CosmWasm/wasmd/x/wasm/client/cli"
 	"github.com/CosmWasm/wasmd/x/wasm/client/rest"

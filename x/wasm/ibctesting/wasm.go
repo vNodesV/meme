@@ -10,13 +10,13 @@ import (
 
 	wasmd "github.com/CosmWasm/wasmd/app"
 
-	ibctesting "github.com/cosmos/ibc-go/v2/testing"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/protobuf/proto" //nolint
 	"github.com/stretchr/testify/require"
-	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/libs/rand"
+	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/libs/rand"
 
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 )

@@ -1,7 +1,8 @@
 # docker build . -t MeMeCosmos/meme:latest
 # docker run --rm -it MeMeCosmos/meme:latest /bin/sh
-FROM golang:1.17.3-alpine AS build-env
-ARG arch=x86_64
+FROM golang:1.22.10-alpine3.20 AS build-env
+ARG TARGETARCH
+ARG WASMVM_ARCH
 
 # this comes from standard alpine nightly file
 #  https://github.com/rust-lang/docker-rust-nightly/blob/master/alpine3.12/Dockerfile
@@ -23,20 +24,28 @@ RUN sha256sum /lib/libwasmvm_muslc.aarch64.a | grep 5b7abfdd307568f5339e2bea1523
 RUN sha256sum /lib/libwasmvm_muslc.x86_64.a | grep 2f44efa9c6c1cda138bd1f46d8d53c5ebfe1f4a53cf3457b01db86472c4917ac
 
 # Copy the library you want to the final location that will be found by the linker flag `-lwasmvm_muslc`
-RUN cp /lib/libwasmvm_muslc.${arch}.a /lib/libwasmvm_muslc.a
+RUN set -eux; \
+  if [ -z "$WASMVM_ARCH" ]; then \
+    case "$TARGETARCH" in \
+      amd64) WASMVM_ARCH=x86_64 ;; \
+      arm64) WASMVM_ARCH=aarch64 ;; \
+      *) echo "unsupported TARGETARCH=$TARGETARCH" && exit 1 ;; \
+    esac; \
+  fi; \
+  cp "/lib/libwasmvm_muslc.${WASMVM_ARCH}.a" /lib/libwasmvm_muslc.a
 
 # force it to use static lib (from above) not standard libgo_cosmwasm.so file
-RUN LEDGER_ENABLED=false BUILD_TAGS=muslc GOOS=linux GOARCH=amd64 LEDGER_ENABLED=true make build
+RUN LEDGER_ENABLED=false BUILD_TAGS=muslc GOOS=linux GOARCH="$TARGETARCH" LEDGER_ENABLED=true make build
 
-FROM alpine:edge
+FROM alpine:3.20
 
-RUN apk add --update ca-certificates
-WORKDIR /root
-
-# Install bash
-RUN apk add --no-cache bash
+RUN apk add --no-cache ca-certificates bash
+RUN addgroup -S memed && adduser -S -G memed memed
+WORKDIR /home/memed
 
 COPY --from=build-env /go/src/github.com/MeMeCosmos/meme/build/memed /usr/bin/memed
+RUN chown -R memed:memed /home/memed
+USER memed
 
 
 # rest server
@@ -47,6 +56,5 @@ EXPOSE 26656
 EXPOSE 26657
 
 CMD ["memed", "version"]
-
 
 
