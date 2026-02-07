@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-GOTOOLCHAIN ?= go1.22.0
+GOTOOLCHAIN ?= go1.23.2
 GO_CMD = GOTOOLCHAIN=$(GOTOOLCHAIN) go
 
 PACKAGES_SIMTEST=$(shell $(GO_CMD) list ./... | grep '/simulation')
