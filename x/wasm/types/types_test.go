@@ -12,10 +12,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govtypes "cosmossdk.io/x/gov/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/libs/rand"
+	"github.com/cometbft/cometbft/libs/rand"
 )
 
 func TestContractInfoValidateBasic(t *testing.T) {

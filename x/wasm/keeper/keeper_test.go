@@ -9,21 +9,21 @@ import (
 	"testing"
 	"time"
 
-	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	distributiontypes "cosmossdk.io/x/distribution/types"
 
 	wasmvm "github.com/CosmWasm/wasmvm"
 	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
 
-	stypes "github.com/cosmos/cosmos-sdk/store/types"
+	stypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	authtypes "cosmossdk.io/x/auth/types"
+	banktypes "cosmossdk.io/x/bank/types"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	"github.com/CosmWasm/wasmd/x/wasm/keeper/wasmtesting"
 	"github.com/CosmWasm/wasmd/x/wasm/types"

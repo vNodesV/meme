@@ -5,7 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	fuzz "github.com/google/gofuzz"
-	tmBytes "github.com/tendermint/tendermint/libs/bytes"
+	tmBytes "github.com/cometbft/cometbft/libs/bytes"
 
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 )
