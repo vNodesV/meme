@@ -11,7 +11,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	authtypes "cosmossdk.io/x/auth/types"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
