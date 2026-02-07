@@ -5,9 +5,9 @@ import (
 
 	"cosmossdk.io/store"
 	"cosmossdk.io/store/iavl"
+	dbm "github.com/cometbft/cometbft-db"
 	iavl2 "github.com/cosmos/iavl"
 	"github.com/stretchr/testify/require"
-	dbm "github.com/cometbft/cometbft-db"
 )
 
 // This is modeled close to

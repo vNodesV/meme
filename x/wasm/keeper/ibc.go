@@ -1,12 +1,12 @@
 package keeper
 
 import (
+	"errors"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
-	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
+	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
 
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 )
@@ -15,8 +15,7 @@ import (
 // returns a string name of the port or error if we cannot bind it.
 // this will fail if call twice.
 func (k Keeper) bindIbcPort(ctx sdk.Context, portID string) error {
-	cap := k.portKeeper.BindPort(ctx, portID)
-	return k.ClaimCapability(ctx, cap, host.PortPath(portID))
+	return k.portKeeper.BindPort(ctx, portID)
 }
 
 // ensureIbcPort is like registerIbcPort, but it checks if we already hold the port
@@ -25,10 +24,13 @@ func (k Keeper) bindIbcPort(ctx sdk.Context, portID string) error {
 // (lack of permissions or someone else has it)
 func (k Keeper) ensureIbcPort(ctx sdk.Context, contractAddr sdk.AccAddress) (string, error) {
 	portID := PortIDForContract(contractAddr)
-	if _, ok := k.capabilityKeeper.GetCapability(ctx, host.PortPath(portID)); ok {
-		return portID, nil
+	if err := k.bindIbcPort(ctx, portID); err != nil {
+		if errors.Is(err, porttypes.ErrPortAlreadyBound) {
+			return portID, nil
+		}
+		return portID, err
 	}
-	return portID, k.bindIbcPort(ctx, portID)
+	return portID, nil
 }
 
 const portIDPrefix = "wasm."
@@ -44,13 +46,4 @@ func ContractFromPortID(portID string) (sdk.AccAddress, error) {
 	return sdk.AccAddressFromBech32(portID[len(portIDPrefix):])
 }
 
-// AuthenticateCapability wraps the scopedKeeper's AuthenticateCapability function
-func (k Keeper) AuthenticateCapability(ctx sdk.Context, cap *capabilitytypes.Capability, name string) bool {
-	return k.capabilityKeeper.AuthenticateCapability(ctx, cap, name)
-}
-
-// ClaimCapability allows the transfer module to claim a capability
-// that IBC module passes to it
-func (k Keeper) ClaimCapability(ctx sdk.Context, cap *capabilitytypes.Capability, name string) error {
-	return k.capabilityKeeper.ClaimCapability(ctx, cap, name)
-}
+// Capability-based IBC methods were removed in IBC v10.

@@ -9,8 +9,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	banktypes "cosmossdk.io/x/bank/types"
-	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
@@ -233,21 +232,15 @@ func TestIBCRawPacketHandler(t *testing.T) {
 					"other-channel-1",
 				)}, true
 		},
-		SendPacketFn: func(ctx sdk.Context, channelCap *capabilitytypes.Capability, packet ibcexported.PacketI) error {
+		SendPacketFn: func(ctx sdk.Context, packet ibcexported.PacketI) error {
 			capturedPacket = packet
 			return nil
-		},
-	}
-	capKeeper := &wasmtesting.MockCapabilityKeeper{
-		GetCapabilityFn: func(ctx sdk.Context, name string) (*capabilitytypes.Capability, bool) {
-			return &capabilitytypes.Capability{}, true
 		},
 	}
 
 	specs := map[string]struct {
 		srcMsg        wasmvmtypes.SendPacketMsg
 		chanKeeper    types.ChannelKeeper
-		capKeeper     types.CapabilityKeeper
 		expPacketSent channeltypes.Packet
 		expErr        *sdkerrors.Error
 	}{
@@ -258,7 +251,6 @@ func TestIBCRawPacketHandler(t *testing.T) {
 				Timeout:   wasmvmtypes.IBCTimeout{Block: &wasmvmtypes.IBCTimeoutBlock{Revision: 1, Height: 2}},
 			},
 			chanKeeper: chanKeeper,
-			capKeeper:  capKeeper,
 			expPacketSent: channeltypes.Packet{
 				Sequence:           1,
 				SourcePort:         ibcPort,
@@ -281,25 +273,12 @@ func TestIBCRawPacketHandler(t *testing.T) {
 				}},
 			expErr: channeltypes.ErrSequenceSendNotFound,
 		},
-		"capability not found returns error": {
-			srcMsg: wasmvmtypes.SendPacketMsg{
-				ChannelID: "channel-1",
-				Data:      []byte("myData"),
-				Timeout:   wasmvmtypes.IBCTimeout{Block: &wasmvmtypes.IBCTimeoutBlock{Revision: 1, Height: 2}},
-			},
-			chanKeeper: chanKeeper,
-			capKeeper: wasmtesting.MockCapabilityKeeper{
-				GetCapabilityFn: func(ctx sdk.Context, name string) (*capabilitytypes.Capability, bool) {
-					return nil, false
-				}},
-			expErr: channeltypes.ErrChannelCapabilityNotFound,
-		},
 	}
 	for name, spec := range specs {
 		t.Run(name, func(t *testing.T) {
 			capturedPacket = nil
 			// when
-			h := NewIBCRawPacketHandler(spec.chanKeeper, spec.capKeeper)
+			h := NewIBCRawPacketHandler(spec.chanKeeper)
 			data, evts, gotErr := h.DispatchMsg(ctx, RandomAccountAddress(t), ibcPort, wasmvmtypes.CosmosMsg{IBC: &wasmvmtypes.IBCMsg{SendPacket: &spec.srcMsg}})
 			// then
 			require.True(t, spec.expErr.Is(gotErr), "exp %v but got %#+v", spec.expErr, gotErr)

@@ -7,7 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	govtypes "cosmossdk.io/x/gov/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 type ProposalType string

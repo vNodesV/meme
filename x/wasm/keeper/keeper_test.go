@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	distributiontypes "cosmossdk.io/x/distribution/types"
+	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 
 	wasmvm "github.com/CosmWasm/wasmvm"
 	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
@@ -17,8 +17,8 @@ import (
 	stypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	authtypes "cosmossdk.io/x/auth/types"
-	banktypes "cosmossdk.io/x/bank/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -313,7 +313,7 @@ func TestInstantiate(t *testing.T) {
 
 	gasAfter := ctx.GasMeter().GasConsumed()
 	if types.EnableGasVerification {
-	//	require.Equal(t, uint64(0x18dab), gasAfter-gasBefore)
+		//	require.Equal(t, uint64(0x18dab), gasAfter-gasBefore)
 		require.Equal(t, uint64(0x18db5), gasAfter-gasBefore)
 	}
 

@@ -8,10 +8,8 @@ import (
 	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
-	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 
 	types "github.com/CosmWasm/wasmd/x/wasm/types"
 )
@@ -34,7 +32,6 @@ func (i IBCHandler) OnChanOpenInit(
 	connectionHops []string,
 	portID string,
 	channelID string,
-	chanCap *capabilitytypes.Capability,
 	counterParty channeltypes.Counterparty,
 	version string,
 ) error {
@@ -62,10 +59,6 @@ func (i IBCHandler) OnChanOpenInit(
 	if err != nil {
 		return err
 	}
-	// Claim channel capability passed back by IBC module
-	if err := i.keeper.ClaimCapability(ctx, chanCap, host.ChannelCapabilityPath(portID, channelID)); err != nil {
-		return sdkerrors.Wrap(err, "claim capability")
-	}
 	return nil
 }
 
@@ -75,7 +68,6 @@ func (i IBCHandler) OnChanOpenTry(
 	order channeltypes.Order,
 	connectionHops []string,
 	portID, channelID string,
-	chanCap *capabilitytypes.Capability,
 	counterParty channeltypes.Counterparty,
 	version, counterpartyVersion string,
 ) error {
@@ -105,16 +97,6 @@ func (i IBCHandler) OnChanOpenTry(
 	err = i.keeper.OnOpenChannel(ctx, contractAddr, msg)
 	if err != nil {
 		return err
-	}
-	// Module may have already claimed capability in OnChanOpenInit in the case of crossing hellos
-	// (ie chainA and chainB both call ChanOpenInit before one of them calls ChanOpenTry)
-	// If module can already authenticate the capability then module already owns it so we don't need to claim
-	// Otherwise, module does not have channel capability and we must claim it from IBC
-	if !i.keeper.AuthenticateCapability(ctx, chanCap, host.ChannelCapabilityPath(portID, channelID)) {
-		// Only claim channel capability passed back by IBC module if we do not already own it
-		if err := i.keeper.ClaimCapability(ctx, chanCap, host.ChannelCapabilityPath(portID, channelID)); err != nil {
-			return sdkerrors.Wrap(err, "claim capability")
-		}
 	}
 	return nil
 }
