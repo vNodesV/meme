@@ -28,8 +28,12 @@ const (
 	QueryMethodContractStateRaw   = "raw"
 )
 
+// LegacyQuerier defines a function type for the legacy ABCI querier
+// This type alias maintains backward compatibility with the deprecated sdk.Querier
+type LegacyQuerier func(ctx sdk.Context, path []string, req abci.RequestQuery) ([]byte, error)
+
 // NewLegacyQuerier creates a new querier
-func NewLegacyQuerier(keeper types.ViewKeeper, gasLimit storetypes.Gas) sdk.Querier {
+func NewLegacyQuerier(keeper types.ViewKeeper, gasLimit storetypes.Gas) LegacyQuerier {
 	return func(ctx sdk.Context, path []string, req abci.RequestQuery) ([]byte, error) {
 		var (
 			rsp interface{}

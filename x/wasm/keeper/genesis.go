@@ -4,6 +4,7 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 )
@@ -13,10 +14,14 @@ type ValidatorSetSource interface {
 	ApplyAndReturnValidatorSetUpdates(sdk.Context) (updates []abci.ValidatorUpdate, err error)
 }
 
+// Handler defines a function type for handling SDK messages
+// This type alias maintains backward compatibility with the deprecated sdk.Handler
+type Handler func(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error)
+
 // InitGenesis sets supply information for genesis.
 //
 // CONTRACT: all types of accounts must have been already initialized/created
-func InitGenesis(ctx sdk.Context, keeper *Keeper, data types.GenesisState, stakingKeeper ValidatorSetSource, msgHandler sdk.Handler) ([]abci.ValidatorUpdate, error) {
+func InitGenesis(ctx sdk.Context, keeper *Keeper, data types.GenesisState, stakingKeeper ValidatorSetSource, msgHandler Handler) ([]abci.ValidatorUpdate, error) {
 	contractKeeper := NewGovPermissionKeeper(keeper)
 	keeper.SetParams(ctx, data.Params)
 	var maxCodeID uint64
@@ -75,7 +80,7 @@ func InitGenesis(ctx sdk.Context, keeper *Keeper, data types.GenesisState, staki
 		}
 		_, err := msgHandler(ctx, msg)
 		if err != nil {
-			return nil, sdkerrors.Wrap(err, "genesis")
+			return nil, errors.Wrap(err, "genesis")
 		}
 	}
 	return stakingKeeper.ApplyAndReturnValidatorSetUpdates(ctx)

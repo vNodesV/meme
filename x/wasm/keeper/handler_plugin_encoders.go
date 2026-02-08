@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
+	"cosmossdk.io/errors"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -101,12 +102,12 @@ func (e MessageEncoders) Encode(ctx sdk.Context, contractAddr sdk.AccAddress, co
 	case msg.Gov != nil:
 		return EncodeGovMsg(contractAddr, msg.Gov)
 	}
-	return nil, sdkerrors.Wrap(types.ErrUnknownMsg, "unknown variant of Wasm")
+	return nil, errors.Wrap(types.ErrUnknownMsg, "unknown variant of Wasm")
 }
 
 func EncodeBankMsg(sender sdk.AccAddress, msg *wasmvmtypes.BankMsg) ([]sdk.Msg, error) {
 	if msg.Send == nil {
-		return nil, sdkerrors.Wrap(types.ErrUnknownMsg, "unknown variant of Bank")
+		return nil, errors.Wrap(types.ErrUnknownMsg, "unknown variant of Bank")
 	}
 	if len(msg.Send.Amount) == 0 {
 		return nil, nil
@@ -124,7 +125,7 @@ func EncodeBankMsg(sender sdk.AccAddress, msg *wasmvmtypes.BankMsg) ([]sdk.Msg, 
 }
 
 func NoCustomMsg(sender sdk.AccAddress, msg json.RawMessage) ([]sdk.Msg, error) {
-	return nil, sdkerrors.Wrap(types.ErrUnknownMsg, "custom variant not supported")
+	return nil, errors.Wrap(types.ErrUnknownMsg, "custom variant not supported")
 }
 
 func EncodeDistributionMsg(sender sdk.AccAddress, msg *wasmvmtypes.DistributionMsg) ([]sdk.Msg, error) {
@@ -142,7 +143,7 @@ func EncodeDistributionMsg(sender sdk.AccAddress, msg *wasmvmtypes.DistributionM
 		}
 		return []sdk.Msg{&withdrawMsg}, nil
 	default:
-		return nil, sdkerrors.Wrap(types.ErrUnknownMsg, "unknown variant of Distribution")
+		return nil, errors.Wrap(types.ErrUnknownMsg, "unknown variant of Distribution")
 	}
 }
 
@@ -184,7 +185,7 @@ func EncodeStakingMsg(sender sdk.AccAddress, msg *wasmvmtypes.StakingMsg) ([]sdk
 		}
 		return []sdk.Msg{&sdkMsg}, nil
 	default:
-		return nil, sdkerrors.Wrap(types.ErrUnknownMsg, "unknown variant of Staking")
+		return nil, errors.Wrap(types.ErrUnknownMsg, "unknown variant of Staking")
 	}
 }
 
@@ -196,10 +197,10 @@ func EncodeStargateMsg(unpacker codectypes.AnyUnpacker) StargateEncoder {
 		}
 		var sdkMsg sdk.Msg
 		if err := unpacker.UnpackAny(&any, &sdkMsg); err != nil {
-			return nil, sdkerrors.Wrap(types.ErrInvalidMsg, fmt.Sprintf("Cannot unpack proto message with type URL: %s", msg.TypeURL))
+			return nil, errors.Wrap(types.ErrInvalidMsg, fmt.Sprintf("Cannot unpack proto message with type URL: %s", msg.TypeURL))
 		}
 		if err := codectypes.UnpackInterfaces(sdkMsg, unpacker); err != nil {
-			return nil, sdkerrors.Wrap(types.ErrInvalidMsg, fmt.Sprintf("UnpackInterfaces inside msg: %s", err))
+			return nil, errors.Wrap(types.ErrInvalidMsg, fmt.Sprintf("UnpackInterfaces inside msg: %s", err))
 		}
 		return []sdk.Msg{sdkMsg}, nil
 	}
@@ -257,7 +258,7 @@ func EncodeWasmMsg(sender sdk.AccAddress, msg *wasmvmtypes.WasmMsg) ([]sdk.Msg, 
 		}
 		return []sdk.Msg{&sdkMsg}, nil
 	default:
-		return nil, sdkerrors.Wrap(types.ErrUnknownMsg, "unknown variant of Wasm")
+		return nil, errors.Wrap(types.ErrUnknownMsg, "unknown variant of Wasm")
 	}
 }
 
@@ -273,7 +274,7 @@ func EncodeIBCMsg(portSource types.ICS20TransferPortSource) func(ctx sdk.Context
 		case msg.Transfer != nil:
 			amount, err := ConvertWasmCoinToSdkCoin(msg.Transfer.Amount)
 			if err != nil {
-				return nil, sdkerrors.Wrap(err, "amount")
+				return nil, errors.Wrap(err, "amount")
 			}
 			msg := &ibctransfertypes.MsgTransfer{
 				SourcePort:       portSource.GetPort(ctx),
@@ -286,7 +287,7 @@ func EncodeIBCMsg(portSource types.ICS20TransferPortSource) func(ctx sdk.Context
 			}
 			return []sdk.Msg{msg}, nil
 		default:
-			return nil, sdkerrors.Wrap(types.ErrUnknownMsg, "Unknown variant of IBC")
+			return nil, errors.Wrap(types.ErrUnknownMsg, "Unknown variant of IBC")
 		}
 	}
 }
@@ -336,7 +337,7 @@ func ConvertWasmCoinsToSdkCoins(coins []wasmvmtypes.Coin) (sdk.Coins, error) {
 func ConvertWasmCoinToSdkCoin(coin wasmvmtypes.Coin) (sdk.Coin, error) {
 	amount, ok := sdk.NewIntFromString(coin.Amount)
 	if !ok {
-		return sdk.Coin{}, sdkerrors.Wrap(sdkerrors.ErrInvalidCoins, coin.Amount+coin.Denom)
+		return sdk.Coin{}, errors.Wrap(sdkerrors.ErrInvalidCoins, coin.Amount+coin.Denom)
 	}
 	r := sdk.Coin{
 		Denom:  coin.Denom,

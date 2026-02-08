@@ -90,7 +90,7 @@ func (d LimitSimulationGasDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simu
 	}
 
 	// default to max block gas when set, to be on the safe side
-	if maxGas := ctx.ConsensusParams().GetBlock().MaxGas; maxGas > 0 {
+	if maxGas := ctx.ConsensusParams().Block.MaxGas; maxGas > 0 {
 		return next(ctx.WithGasMeter(storetypes.NewGasMeter(storetypes.Gas(maxGas))), tx, simulate)
 	}
 	return next(ctx, tx, simulate)

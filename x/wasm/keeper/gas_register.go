@@ -1,6 +1,8 @@
 package keeper
 
 import (
+	"cosmossdk.io/errors"
+	sdkmath "cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -123,7 +125,7 @@ func NewDefaultWasmGasRegister() WasmGasRegister {
 // NewWasmGasRegister constructor
 func NewWasmGasRegister(c WasmGasRegisterConfig) WasmGasRegister {
 	if c.GasMultiplier == 0 {
-		panic(sdkerrors.Wrap(sdkerrors.ErrLogic, "GasMultiplier can not be 0"))
+		panic(errors.Wrap(sdkerrors.ErrLogic, "GasMultiplier can not be 0"))
 	}
 	return WasmGasRegister{
 		c: c,
@@ -138,7 +140,7 @@ func (g WasmGasRegister) NewContractInstanceCosts(pinned bool, msgLen int) store
 // CompileCosts costs to persist and "compile" a new wasm contract
 func (g WasmGasRegister) CompileCosts(byteLength int) storetypes.Gas {
 	if byteLength < 0 {
-		panic(sdkerrors.Wrap(types.ErrInvalid, "negative length"))
+		panic(errors.Wrap(types.ErrInvalid, "negative length"))
 	}
 	return g.c.CompileCost * uint64(byteLength)
 }
@@ -146,7 +148,7 @@ func (g WasmGasRegister) CompileCosts(byteLength int) storetypes.Gas {
 // InstantiateContractCosts costs when interacting with a wasm contract
 func (g WasmGasRegister) InstantiateContractCosts(pinned bool, msgLen int) storetypes.Gas {
 	if msgLen < 0 {
-		panic(sdkerrors.Wrap(types.ErrInvalid, "negative length"))
+		panic(errors.Wrap(types.ErrInvalid, "negative length"))
 	}
 	dataCosts := storetypes.Gas(msgLen) * g.c.ContractMessageDataCost
 	if pinned {
@@ -195,10 +197,10 @@ func (g WasmGasRegister) eventAttributeCosts(attrs []wasmvmtypes.EventAttribute,
 	}
 	storedBytes, freeTier = calcWithFreeTier(storedBytes, freeTier)
 	// total Length * costs + attribute count * costs
-	r := sdk.NewIntFromUint64(g.c.EventAttributeDataCost).Mul(sdk.NewIntFromUint64(storedBytes)).
-		Add(sdk.NewIntFromUint64(g.c.EventPerAttributeCost).Mul(sdk.NewIntFromUint64(uint64(len(attrs)))))
+	r := sdkmath.NewIntFromUint64(g.c.EventAttributeDataCost).Mul(sdkmath.NewIntFromUint64(storedBytes)).
+		Add(sdkmath.NewIntFromUint64(g.c.EventPerAttributeCost).Mul(sdkmath.NewIntFromUint64(uint64(len(attrs)))))
 	if !r.IsUint64() {
-		panic(sdk.ErrorOutOfGas{Descriptor: "overflow"})
+		panic(storetypes.ErrorOutOfGas{Descriptor: "overflow"})
 	}
 	return r.Uint64(), freeTier
 }
@@ -216,7 +218,7 @@ func calcWithFreeTier(storedBytes uint64, freeTier uint64) (uint64, uint64) {
 func (g WasmGasRegister) ToWasmVMGas(source storetypes.Gas) uint64 {
 	x := source * g.c.GasMultiplier
 	if x < source {
-		panic(sdk.ErrorOutOfGas{Descriptor: "overflow"})
+		panic(storetypes.ErrorOutOfGas{Descriptor: "overflow"})
 	}
 	return x
 }
