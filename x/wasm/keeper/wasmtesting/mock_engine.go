@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"crypto/sha256"
 
+	"cosmossdk.io/errors"
 	wasmvm "github.com/CosmWasm/wasmvm"
 	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
 	"github.com/cometbft/cometbft/libs/rand"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 )
@@ -325,7 +325,7 @@ func NewIBCContractMockWasmer(c IBCContractCallbacks) *MockWasmer {
 
 func HashOnlyCreateFn(code wasmvm.WasmCode) (wasmvm.Checksum, error) {
 	if code == nil {
-		return nil, sdkerrors.Wrap(types.ErrInvalid, "wasm code must not be nil")
+		return nil, errors.Wrap(types.ErrInvalid, "wasm code must not be nil")
 	}
 	hash := sha256.Sum256(code)
 	return hash[:], nil

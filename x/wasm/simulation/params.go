@@ -11,10 +11,10 @@ import (
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 )
 
-func ParamChanges(r *rand.Rand, cdc codec.Codec) []simtypes.ParamChange {
+func ParamChanges(r *rand.Rand, cdc codec.Codec) []simtypes.LegacyParamChange {
 	params := RandomParams(r)
-	return []simtypes.ParamChange{
-		simulation.NewSimParamChange(types.ModuleName, string(types.ParamStoreKeyUploadAccess),
+	return []simtypes.LegacyParamChange{
+		simulation.NewSimLegacyParamChange(types.ModuleName, string(types.ParamStoreKeyUploadAccess),
 			func(r *rand.Rand) string {
 				jsonBz, err := cdc.MarshalJSON(&params.CodeUploadAccess)
 				if err != nil {
@@ -23,12 +23,12 @@ func ParamChanges(r *rand.Rand, cdc codec.Codec) []simtypes.ParamChange {
 				return string(jsonBz)
 			},
 		),
-		simulation.NewSimParamChange(types.ModuleName, string(types.ParamStoreKeyInstantiateAccess),
+		simulation.NewSimLegacyParamChange(types.ModuleName, string(types.ParamStoreKeyInstantiateAccess),
 			func(r *rand.Rand) string {
 				return fmt.Sprintf("%q", params.CodeUploadAccess.Permission.String())
 			},
 		),
-		simulation.NewSimParamChange(types.ModuleName, string(types.ParamStoreKeyMaxWasmCodeSize),
+		simulation.NewSimLegacyParamChange(types.ModuleName, string(types.ParamStoreKeyMaxWasmCodeSize),
 			func(r *rand.Rand) string {
 				return fmt.Sprintf(`"%d"`, params.MaxWasmCodeSize)
 			},

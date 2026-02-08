@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 
+	storetypes "cosmossdk.io/store/types"
 	abci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -28,7 +29,7 @@ const (
 )
 
 // NewLegacyQuerier creates a new querier
-func NewLegacyQuerier(keeper types.ViewKeeper, gasLimit sdk.Gas) sdk.Querier {
+func NewLegacyQuerier(keeper types.ViewKeeper, gasLimit storetypes.Gas) sdk.Querier {
 	return func(ctx sdk.Context, path []string, req abci.RequestQuery) ([]byte, error) {
 		var (
 			rsp interface{}
@@ -83,7 +84,7 @@ func NewLegacyQuerier(keeper types.ViewKeeper, gasLimit sdk.Gas) sdk.Querier {
 	}
 }
 
-func queryContractState(ctx sdk.Context, bech, queryMethod string, data []byte, gasLimit sdk.Gas, keeper types.ViewKeeper) (json.RawMessage, error) {
+func queryContractState(ctx sdk.Context, bech, queryMethod string, data []byte, gasLimit storetypes.Gas, keeper types.ViewKeeper) (json.RawMessage, error) {
 	contractAddr, err := sdk.AccAddressFromBech32(bech)
 	if err != nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, bech)

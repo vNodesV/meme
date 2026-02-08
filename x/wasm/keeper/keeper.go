@@ -13,6 +13,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/address"
 
 	"cosmossdk.io/store/prefix"
+	storetypes "cosmossdk.io/store/types"
 	wasmvm "github.com/CosmWasm/wasmvm"
 	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
 	"github.com/cometbft/cometbft/libs/log"
@@ -59,7 +60,7 @@ type WasmVMResponseHandler interface {
 
 // Keeper will have a reference to Wasmer with it's own data directory.
 type Keeper struct {
-	storeKey              sdk.StoreKey
+	storeKey              storetypes.StoreKey
 	cdc                   codec.Codec
 	accountKeeper         types.AccountKeeper
 	bank                  CoinTransferrer
@@ -78,7 +79,7 @@ type Keeper struct {
 // If customEncoders is non-nil, we can use this to override some of the message handler, especially custom
 func NewKeeper(
 	cdc codec.Codec,
-	storeKey sdk.StoreKey,
+	storeKey storetypes.StoreKey,
 	paramSpace paramtypes.Subspace,
 	accountKeeper types.AccountKeeper,
 	bankKeeper types.BankKeeper,
@@ -963,7 +964,7 @@ func NewMultipliedGasMeter(originalMeter sdk.GasMeter, gr GasRegister) Multiplie
 
 var _ wasmvm.GasMeter = MultipliedGasMeter{}
 
-func (m MultipliedGasMeter) GasConsumed() sdk.Gas {
+func (m MultipliedGasMeter) GasConsumed() storetypes.Gas {
 	return m.GasRegister.ToWasmVMGas(m.originalMeter.GasConsumed())
 }
 
@@ -986,7 +987,7 @@ func Querier(k *Keeper) *grpcQuerier {
 }
 
 // QueryGasLimit returns the gas limit for smart queries.
-func (k Keeper) QueryGasLimit() sdk.Gas {
+func (k Keeper) QueryGasLimit() storetypes.Gas {
 	return k.queryGasLimit
 }
 
