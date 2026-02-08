@@ -43,24 +43,24 @@ func NewLegacyQuerier(keeper types.ViewKeeper, gasLimit storetypes.Gas) LegacyQu
 		case QueryGetContract:
 			addr, addrErr := sdk.AccAddressFromBech32(path[1])
 			if addrErr != nil {
-				return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, addrErr.Error())
+				return nil, errors.Wrap(sdkerrors.ErrInvalidAddress, addrErr.Error())
 			}
 			rsp, err = queryContractInfo(ctx, addr, keeper)
 		case QueryListContractByCode:
 			codeID, parseErr := strconv.ParseUint(path[1], 10, 64)
 			if parseErr != nil {
-				return nil, sdkerrors.Wrapf(types.ErrInvalid, "code id: %s", parseErr.Error())
+				return nil, errors.Wrapf(types.ErrInvalid, "code id: %s", parseErr.Error())
 			}
 			rsp = queryContractListByCode(ctx, codeID, keeper)
 		case QueryGetContractState:
 			if len(path) < 3 {
-				return nil, sdkerrors.Wrap(sdkerrors.ErrUnknownRequest, "unknown data query endpoint")
+				return nil, errors.Wrap(sdkerrors.ErrUnknownRequest, "unknown data query endpoint")
 			}
 			return queryContractState(ctx, path[1], path[2], req.Data, gasLimit, keeper)
 		case QueryGetCode:
 			codeID, parseErr := strconv.ParseUint(path[1], 10, 64)
 			if parseErr != nil {
-				return nil, sdkerrors.Wrapf(types.ErrInvalid, "code id: %s", parseErr.Error())
+				return nil, errors.Wrapf(types.ErrInvalid, "code id: %s", parseErr.Error())
 			}
 			rsp, err = queryCode(ctx, codeID, keeper)
 		case QueryListCode:
@@ -68,11 +68,11 @@ func NewLegacyQuerier(keeper types.ViewKeeper, gasLimit storetypes.Gas) LegacyQu
 		case QueryContractHistory:
 			contractAddr, addrErr := sdk.AccAddressFromBech32(path[1])
 			if addrErr != nil {
-				return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, addrErr.Error())
+				return nil, errors.Wrap(sdkerrors.ErrInvalidAddress, addrErr.Error())
 			}
 			rsp, err = queryContractHistory(ctx, contractAddr, keeper)
 		default:
-			return nil, sdkerrors.Wrap(sdkerrors.ErrUnknownRequest, "unknown data query endpoint")
+			return nil, errors.Wrap(sdkerrors.ErrUnknownRequest, "unknown data query endpoint")
 		}
 		if err != nil {
 			return nil, err
@@ -82,7 +82,7 @@ func NewLegacyQuerier(keeper types.ViewKeeper, gasLimit storetypes.Gas) LegacyQu
 		}
 		bz, err := json.MarshalIndent(rsp, "", "  ")
 		if err != nil {
-			return nil, sdkerrors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
+			return nil, errors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
 		}
 		return bz, nil
 	}
@@ -91,7 +91,7 @@ func NewLegacyQuerier(keeper types.ViewKeeper, gasLimit storetypes.Gas) LegacyQu
 func queryContractState(ctx sdk.Context, bech, queryMethod string, data []byte, gasLimit storetypes.Gas, keeper types.ViewKeeper) (json.RawMessage, error) {
 	contractAddr, err := sdk.AccAddressFromBech32(bech)
 	if err != nil {
-		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, bech)
+		return nil, errors.Wrap(sdkerrors.ErrInvalidAddress, bech)
 	}
 
 	switch queryMethod {
@@ -104,7 +104,7 @@ func queryContractState(ctx sdk.Context, bech, queryMethod string, data []byte, 
 		})
 		bz, err := json.Marshal(resultData)
 		if err != nil {
-			return nil, sdkerrors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
+			return nil, errors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
 		}
 		return bz, nil
 	case QueryMethodContractStateRaw:
@@ -115,13 +115,13 @@ func queryContractState(ctx sdk.Context, bech, queryMethod string, data []byte, 
 		ctx = ctx.WithGasMeter(sdk.NewGasMeter(gasLimit))
 		msg := types.RawContractMessage(data)
 		if err := msg.ValidateBasic(); err != nil {
-			return nil, sdkerrors.Wrap(err, "json msg")
+			return nil, errors.Wrap(err, "json msg")
 		}
 		// this returns raw bytes (must be base64-encoded)
 		bz, err := keeper.QuerySmart(ctx, contractAddr, msg)
 		return bz, err
 	default:
-		return nil, sdkerrors.Wrap(sdkerrors.ErrUnknownRequest, queryMethod)
+		return nil, errors.Wrap(sdkerrors.ErrUnknownRequest, queryMethod)
 	}
 }
 
