@@ -127,12 +127,6 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterQueryServer(cfg.QueryServer(), NewQuerier(am.keeper))
 }
 
-// IsAppModule implements the appmodule.AppModule interface.
-func (AppModule) IsAppModule() {}
-
-// IsOnePerModuleType implements the depinject.OnePerModuleType interface.
-func (AppModule) IsOnePerModuleType() {}
-
 // RegisterInvariants registers the wasm module invariants.
 func (am AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {}
 
