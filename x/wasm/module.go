@@ -25,9 +25,10 @@ import (
 )
 
 var (
-	_ module.AppModule      = AppModule{}
-	_ module.AppModuleBasic = AppModuleBasic{}
-	_ module.HasABCIEndBlock = AppModule{}
+	_ module.AppModule           = AppModule{}
+	_ module.AppModuleBasic      = AppModuleBasic{}
+	_ module.HasABCIEndBlock     = AppModule{}
+	_ module.AppModuleSimulation = AppModule{}
 )
 
 // Module init related flags
@@ -124,10 +125,13 @@ func NewAppModule(cdc codec.Codec, keeper *Keeper, validatorSetSource keeper.Val
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(keeper.NewDefaultPermissionKeeper(am.keeper)))
 	types.RegisterQueryServer(cfg.QueryServer(), NewQuerier(am.keeper))
-
-	// Register legacy querier handler for backward compatibility (if needed)
-	// Note: sdk.Querier type is removed in SDK 0.50, use gRPC queries instead
 }
+
+// IsAppModule implements the appmodule.AppModule interface.
+func (AppModule) IsAppModule() {}
+
+// IsOnePerModuleType implements the depinject.OnePerModuleType interface.
+func (AppModule) IsOnePerModuleType() {}
 
 // RegisterInvariants registers the wasm module invariants.
 func (am AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {}
@@ -182,9 +186,9 @@ func (AppModule) ProposalContents(simState module.SimulationState) []simtypes.We
 }
 
 // RandomizedParams creates randomized wasm param changes for the simulator.
-// Returns LegacyParamChange for SDK 0.50+ compatibility
+// Deprecated: RandomizedParams is deprecated in SDK 0.50+
 func (am AppModule) RandomizedParams(r *rand.Rand) []simtypes.LegacyParamChange {
-	return simulation.ParamChanges(r, am.cdc)
+	return nil
 }
 
 // RegisterStoreDecoder registers a decoder for supply module's types

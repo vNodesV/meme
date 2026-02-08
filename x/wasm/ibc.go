@@ -111,6 +111,7 @@ func (i IBCHandler) OnChanOpenAck(
 	counterpartyChannelID string,
 	counterpartyVersion string,
 ) error {
+	// Note: counterpartyChannelID parameter added for IBC-go v8 compatibility
 	contractAddr, err := ContractFromPortID(portID)
 	if err != nil {
 		return errors.Wrapf(err, "contract port id")
