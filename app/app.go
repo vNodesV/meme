@@ -458,10 +458,11 @@ func NewWasmApp(
 		authority,
 	)
 	transferModule := transfer.NewAppModule(app.transferKeeper)
+	transferIBCModule := transfer.NewIBCModule(app.transferKeeper)
 
 	// create static IBC router, add transfer route, then set and seal it
 	ibcRouter := porttypes.NewRouter()
-	ibcRouter.AddRoute(ibctransfertypes.ModuleName, transferModule)
+	ibcRouter.AddRoute(ibctransfertypes.ModuleName, transferIBCModule)
 
 	// create evidence keeper with router
 	evidenceKeeper := evidencekeeper.NewKeeper(
@@ -483,17 +484,27 @@ func NewWasmApp(
 	// The last arguments can contain custom message handlers, and custom query handlers,
 	// if we want to allow any custom callbacks
 	supportedFeatures := "iterator,staking,stargate"
+	
+	// Create keeper adapters to bridge SDK 0.50 interfaces with wasmd expectations
+	accountKeeperAdapter := NewAccountKeeperAdapter(app.accountKeeper)
+	bankKeeperAdapter := NewBankKeeperAdapter(app.bankKeeper)
+	stakingKeeperAdapter := NewStakingKeeperAdapter(&app.stakingKeeper)
+	distrKeeperAdapter := NewDistributionKeeperAdapter(app.distrKeeper)
+	channelKeeperAdapter := NewChannelKeeperAdapter(&app.ibcKeeper.ChannelKeeper)
+	portKeeperAdapter := NewPortKeeperAdapter(app.ibcKeeper.PortKeeper)
+	transferPortSourceAdapter := NewICS20TransferPortSourceAdapter(app.scopedWasmKeeper)
+	
 	app.wasmKeeper = wasm.NewKeeper(
 		appCodec,
 		keys[wasm.StoreKey],
 		app.getSubspace(wasm.ModuleName),
-		app.accountKeeper,
-		app.bankKeeper,
-		app.stakingKeeper,
-		app.distrKeeper,
-		app.ibcKeeper.ChannelKeeper,
-		app.ibcKeeper.PortKeeper,
-		app.scopedWasmKeeper,
+		accountKeeperAdapter,
+		bankKeeperAdapter,
+		stakingKeeperAdapter,
+		distrKeeperAdapter,
+		channelKeeperAdapter,
+		portKeeperAdapter,
+		transferPortSourceAdapter,
 		app.MsgServiceRouter(),
 		app.GRPCQueryRouter(),
 		wasmDir,
@@ -506,7 +517,7 @@ func NewWasmApp(
 	if len(enabledProposals) != 0 {
 		govRouter.AddRoute(wasm.RouterKey, wasm.NewWasmProposalHandler(app.wasmKeeper, enabledProposals))
 	}
-	ibcRouter.AddRoute(wasm.ModuleName, wasm.NewIBCHandler(app.wasmKeeper, app.ibcKeeper.ChannelKeeper))
+	ibcRouter.AddRoute(wasm.ModuleName, wasm.NewIBCHandler(app.wasmKeeper, channelKeeperAdapter))
 	app.ibcKeeper.SetRouter(ibcRouter)
 
 	// Gov keeper needs to be initialized with a config for SDK 0.50
@@ -539,23 +550,23 @@ func NewWasmApp(
 			app,
 			encodingConfig.TxConfig,
 		),
-		auth.NewAppModule(appCodec, app.accountKeeper, nil),
+		auth.NewAppModule(appCodec, app.accountKeeper, authsims.RandomGenesisAccounts, app.getSubspace(authtypes.ModuleName)),
 		vesting.NewAppModule(app.accountKeeper, app.bankKeeper),
-		bank.NewAppModule(appCodec, app.bankKeeper, app.accountKeeper),
-		gov.NewAppModule(appCodec, app.govKeeper, app.accountKeeper, app.bankKeeper),
-		mint.NewAppModule(appCodec, app.mintKeeper, app.accountKeeper),
-		slashing.NewAppModule(appCodec, app.slashingKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper),
-		distr.NewAppModule(appCodec, app.distrKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper),
-		staking.NewAppModule(appCodec, app.stakingKeeper, app.accountKeeper, app.bankKeeper),
-		upgrade.NewAppModule(app.upgradeKeeper),
-		wasm.NewAppModule(appCodec, &app.wasmKeeper, app.stakingKeeper),
+		bank.NewAppModule(appCodec, app.bankKeeper, app.accountKeeper, app.getSubspace(banktypes.ModuleName)),
+		gov.NewAppModule(appCodec, &app.govKeeper, app.accountKeeper, app.bankKeeper, app.getSubspace(govtypes.ModuleName)),
+		mint.NewAppModule(appCodec, app.mintKeeper, app.accountKeeper, nil, app.getSubspace(minttypes.ModuleName)),
+		slashing.NewAppModule(appCodec, app.slashingKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper, app.getSubspace(slashingtypes.ModuleName), app.interfaceRegistry),
+		distr.NewAppModule(appCodec, app.distrKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper, app.getSubspace(distrtypes.ModuleName)),
+		staking.NewAppModule(appCodec, &app.stakingKeeper, app.accountKeeper, app.bankKeeper, app.getSubspace(stakingtypes.ModuleName)),
+		upgrade.NewAppModule(&app.upgradeKeeper, addressCodec),
+		wasm.NewAppModule(appCodec, &app.wasmKeeper, NewValidatorSetSourceAdapter(&app.stakingKeeper)),
 		evidence.NewAppModule(app.evidenceKeeper),
 		feegrantmodule.NewAppModule(appCodec, app.accountKeeper, app.bankKeeper, app.FeeGrantKeeper, app.interfaceRegistry),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.accountKeeper, app.bankKeeper, app.interfaceRegistry),
 		ibc.NewAppModule(app.ibcKeeper),
 		params.NewAppModule(app.paramsKeeper),
 		transferModule,
-		crisis.NewAppModule(&app.crisisKeeper, skipGenesisInvariants), // always be last to make sure that it checks for all invariants and not only part of them
+		crisis.NewAppModule(&app.crisisKeeper, skipGenesisInvariants, app.getSubspace(crisistypes.ModuleName)), // always be last to make sure that it checks for all invariants and not only part of them
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that
@@ -579,7 +590,7 @@ func NewWasmApp(
 		paramstypes.ModuleName,
 		vestingtypes.ModuleName,
 		// additional non simd modules
-		ibchost.ModuleName,
+		IBCStoreKey,
 		ibctransfertypes.ModuleName,
 		wasm.ModuleName,
 	)
@@ -601,7 +612,7 @@ func NewWasmApp(
 		upgradetypes.ModuleName,
 		vestingtypes.ModuleName,
 		// additional non simd modules
-		ibchost.ModuleName,
+		IBCStoreKey,
 		ibctransfertypes.ModuleName,
 		wasm.ModuleName,
 	)
@@ -630,7 +641,7 @@ func NewWasmApp(
 		upgradetypes.ModuleName,
 		vestingtypes.ModuleName,
 		// additional non simd modules
-		ibchost.ModuleName,
+		IBCStoreKey,
 		ibctransfertypes.ModuleName,
 		// wasm after ibc transfer
 		wasm.ModuleName,
@@ -640,7 +651,6 @@ func NewWasmApp(
 	// app.mm.SetOrderMigrations(custom order)
 
 	app.mm.RegisterInvariants(&app.crisisKeeper)
-	app.mm.RegisterRoutes(app.Router(), app.QueryRouter(), encodingConfig.Amino)
 
 	app.configurator = module.NewConfigurator(app.appCodec, app.MsgServiceRouter(), app.GRPCQueryRouter())
 	app.mm.RegisterServices(app.configurator)
@@ -650,18 +660,18 @@ func NewWasmApp(
 	// NOTE: this is not required apps that don't use the simulator for fuzz testing
 	// transactions
 	app.sm = module.NewSimulationManager(
-		auth.NewAppModule(appCodec, app.accountKeeper, authsims.RandomGenesisAccounts),
-		bank.NewAppModule(appCodec, app.bankKeeper, app.accountKeeper),
+		auth.NewAppModule(appCodec, app.accountKeeper, authsims.RandomGenesisAccounts, app.getSubspace(authtypes.ModuleName)),
+		bank.NewAppModule(appCodec, app.bankKeeper, app.accountKeeper, app.getSubspace(banktypes.ModuleName)),
 		feegrantmodule.NewAppModule(appCodec, app.accountKeeper, app.bankKeeper, app.FeeGrantKeeper, app.interfaceRegistry),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.accountKeeper, app.bankKeeper, app.interfaceRegistry),
-		gov.NewAppModule(appCodec, app.govKeeper, app.accountKeeper, app.bankKeeper),
-		mint.NewAppModule(appCodec, app.mintKeeper, app.accountKeeper),
-		staking.NewAppModule(appCodec, app.stakingKeeper, app.accountKeeper, app.bankKeeper),
-		distr.NewAppModule(appCodec, app.distrKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper),
-		slashing.NewAppModule(appCodec, app.slashingKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper),
+		gov.NewAppModule(appCodec, &app.govKeeper, app.accountKeeper, app.bankKeeper, app.getSubspace(govtypes.ModuleName)),
+		mint.NewAppModule(appCodec, app.mintKeeper, app.accountKeeper, nil, app.getSubspace(minttypes.ModuleName)),
+		staking.NewAppModule(appCodec, &app.stakingKeeper, app.accountKeeper, app.bankKeeper, app.getSubspace(stakingtypes.ModuleName)),
+		distr.NewAppModule(appCodec, app.distrKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper, app.getSubspace(distrtypes.ModuleName)),
+		slashing.NewAppModule(appCodec, app.slashingKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper, app.getSubspace(slashingtypes.ModuleName), app.interfaceRegistry),
 		params.NewAppModule(app.paramsKeeper),
 		evidence.NewAppModule(app.evidenceKeeper),
-		wasm.NewAppModule(appCodec, &app.wasmKeeper, app.stakingKeeper),
+		wasm.NewAppModule(appCodec, &app.wasmKeeper, NewValidatorSetSourceAdapter(&app.stakingKeeper)),
 		ibc.NewAppModule(app.ibcKeeper),
 		transferModule,
 	)
@@ -725,10 +735,10 @@ func (app *WasmApp) EndBlocker(ctx sdk.Context) (sdk.EndBlock, error) {
 }
 
 // InitChainer application update at chain initialization
-func (app *WasmApp) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
+func (app *WasmApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
 	var genesisState GenesisState
 	if err := tmjson.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	app.upgradeKeeper.SetModuleVersionMap(ctx, app.mm.GetVersionMap())
@@ -823,10 +833,10 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(minttypes.ModuleName)
 	paramsKeeper.Subspace(distrtypes.ModuleName)
 	paramsKeeper.Subspace(slashingtypes.ModuleName)
-	paramsKeeper.Subspace(govtypes.ModuleName).WithKeyTable(govtypes.ParamKeyTable())
+	paramsKeeper.Subspace(govtypes.ModuleName)
 	paramsKeeper.Subspace(crisistypes.ModuleName)
 	paramsKeeper.Subspace(ibctransfertypes.ModuleName)
-	paramsKeeper.Subspace(ibchost.ModuleName)
+	paramsKeeper.Subspace(IBCStoreKey)
 	paramsKeeper.Subspace(wasm.ModuleName)
 
 	return paramsKeeper
