@@ -4,9 +4,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
 )
 
 // RegisterLegacyAminoCodec registers the account types and interface
@@ -28,27 +26,14 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) { //nolint:staticcheck
 }
 
 func RegisterInterfaces(registry types.InterfaceRegistry) {
-	registry.RegisterImplementations(
-		(*sdk.Msg)(nil),
-		&MsgStoreCode{},
-		&MsgInstantiateContract{},
-		&MsgExecuteContract{},
-		&MsgMigrateContract{},
-		&MsgUpdateAdmin{},
-		&MsgClearAdmin{},
-		&MsgIBCCloseChannel{},
-		&MsgIBCSend{},
-	)
-	registry.RegisterImplementations(
-		(*govtypes.Content)(nil),
-		&StoreCodeProposal{},
-		&InstantiateContractProposal{},
-		&MigrateContractProposal{},
-		&UpdateAdminProposal{},
-		&ClearAdminProposal{},
-		&PinCodesProposal{},
-		&UnpinCodesProposal{},
-	)
+	// NOTE: In SDK 0.50, message implementations are automatically registered
+	// by RegisterMsgServiceDesc, so we don't manually register them here.
+	
+	// Legacy v1beta1 gov proposals are deprecated in SDK 0.50 and cause
+	// registration conflicts. They are registered via their proto definitions
+	// if needed. SDK 0.50 uses gov v1, not v1beta1.
+	// If backward compatibility with v1beta1 proposals is needed, they must
+	// be migrated to gov v1 format or registered through module-specific handlers.
 
 	registry.RegisterInterface("ContractInfoExtension", (*ContractInfoExtension)(nil))
 
