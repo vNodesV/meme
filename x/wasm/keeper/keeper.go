@@ -15,8 +15,8 @@ import (
 	"cosmossdk.io/errors"
 	"cosmossdk.io/store/prefix"
 	storetypes "cosmossdk.io/store/types"
-	wasmvm "github.com/CosmWasm/wasmvm"
-	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
+	wasmvm "github.com/CosmWasm/wasmvm/v2"
+	wasmvmtypes "github.com/CosmWasm/wasmvm/v2/types"
 	"github.com/cometbft/cometbft/libs/log"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/telemetry"
@@ -847,7 +847,7 @@ func (k *Keeper) handleContractResponse(
 	data []byte,
 	evts wasmvmtypes.Events,
 ) ([]byte, error) {
-	attributeGasCost := k.gasRegister.EventCosts(attrs, evts)
+	attributeGasCost := k.gasRegister.EventCosts(attrs)
 	ctx.GasMeter().ConsumeGas(attributeGasCost, "Custom contract event attributes")
 	// emit all events from this contract itself
 	if len(attrs) != 0 {

@@ -10,7 +10,7 @@ import (
 
 	wasmd "github.com/CosmWasm/wasmd/app"
 
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	ibctesting "github.com/cosmos/ibc-go/v8/testing"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/rand"

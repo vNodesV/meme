@@ -7,8 +7,8 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	channelkeeper "github.com/cosmos/ibc-go/v10/modules/core/04-channel/keeper"
-	ibcante "github.com/cosmos/ibc-go/v10/modules/core/ante"
+	channelkeeper "github.com/cosmos/ibc-go/v8/modules/core/04-channel/keeper"
+	ibcante "github.com/cosmos/ibc-go/v8/modules/core/ante"
 )
 
 // HandlerOptions extend the SDK's AnteHandler options by requiring the IBC
