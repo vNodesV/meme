@@ -3,9 +3,10 @@ package keeper
 import (
 	"encoding/hex"
 
+	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
 
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 )
@@ -23,7 +24,7 @@ func NewWasmProposalHandlerX(k types.ContractOpsKeeper, enabledProposalTypes []t
 	}
 	return func(ctx sdk.Context, content govtypes.Content) error {
 		if content == nil {
-			return sdkerrors.Wrap(sdkerrors.ErrUnknownRequest, "content must not be empty")
+			return errors.Wrap(sdkerrors.ErrUnknownRequest, "content must not be empty")
 		}
 		if _, ok := enabledTypes[content.ProposalType()]; !ok {
 			return sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "unsupported wasm proposal content type: %q", content.ProposalType())
@@ -60,7 +61,7 @@ func handleStoreCodeProposal(ctx sdk.Context, k types.ContractOpsKeeper, p types
 
 	runAsAddr, err := sdk.AccAddressFromBech32(p.RunAs)
 	if err != nil {
-		return sdkerrors.Wrap(err, "run as address")
+		return errors.Wrap(err, "run as address")
 	}
 	codeID, err := k.Create(ctx, runAsAddr, p.WASMByteCode, p.InstantiatePermission)
 	if err != nil {
@@ -75,11 +76,11 @@ func handleInstantiateProposal(ctx sdk.Context, k types.ContractOpsKeeper, p typ
 	}
 	runAsAddr, err := sdk.AccAddressFromBech32(p.RunAs)
 	if err != nil {
-		return sdkerrors.Wrap(err, "run as address")
+		return errors.Wrap(err, "run as address")
 	}
 	adminAddr, err := sdk.AccAddressFromBech32(p.Admin)
 	if err != nil {
-		return sdkerrors.Wrap(err, "admin")
+		return errors.Wrap(err, "admin")
 	}
 
 	_, data, err := k.Instantiate(ctx, p.CodeID, runAsAddr, adminAddr, p.Msg, p.Label, p.Funds)
@@ -101,10 +102,10 @@ func handleMigrateProposal(ctx sdk.Context, k types.ContractOpsKeeper, p types.M
 
 	contractAddr, err := sdk.AccAddressFromBech32(p.Contract)
 	if err != nil {
-		return sdkerrors.Wrap(err, "contract")
+		return errors.Wrap(err, "contract")
 	}
 	if err != nil {
-		return sdkerrors.Wrap(err, "run as address")
+		return errors.Wrap(err, "run as address")
 	}
 	// runAs is not used if this is permissioned, so just put any valid address there (second contractAddr)
 	data, err := k.Migrate(ctx, contractAddr, contractAddr, p.CodeID, p.Msg)
@@ -126,7 +127,7 @@ func handleSudoProposal(ctx sdk.Context, k types.ContractOpsKeeper, p types.Sudo
 
 	contractAddr, err := sdk.AccAddressFromBech32(p.Contract)
 	if err != nil {
-		return sdkerrors.Wrap(err, "contract")
+		return errors.Wrap(err, "contract")
 	}
 	data, err := k.Sudo(ctx, contractAddr, p.Msg)
 	if err != nil {
@@ -147,11 +148,11 @@ func handleExecuteProposal(ctx sdk.Context, k types.ContractOpsKeeper, p types.E
 
 	contractAddr, err := sdk.AccAddressFromBech32(p.Contract)
 	if err != nil {
-		return sdkerrors.Wrap(err, "contract")
+		return errors.Wrap(err, "contract")
 	}
 	runAsAddr, err := sdk.AccAddressFromBech32(p.RunAs)
 	if err != nil {
-		return sdkerrors.Wrap(err, "run as address")
+		return errors.Wrap(err, "run as address")
 	}
 	data, err := k.Execute(ctx, contractAddr, runAsAddr, p.Msg, p.Funds)
 	if err != nil {
@@ -171,11 +172,11 @@ func handleUpdateAdminProposal(ctx sdk.Context, k types.ContractOpsKeeper, p typ
 	}
 	contractAddr, err := sdk.AccAddressFromBech32(p.Contract)
 	if err != nil {
-		return sdkerrors.Wrap(err, "contract")
+		return errors.Wrap(err, "contract")
 	}
 	newAdminAddr, err := sdk.AccAddressFromBech32(p.NewAdmin)
 	if err != nil {
-		return sdkerrors.Wrap(err, "run as address")
+		return errors.Wrap(err, "run as address")
 	}
 
 	return k.UpdateContractAdmin(ctx, contractAddr, nil, newAdminAddr)
@@ -188,7 +189,7 @@ func handleClearAdminProposal(ctx sdk.Context, k types.ContractOpsKeeper, p type
 
 	contractAddr, err := sdk.AccAddressFromBech32(p.Contract)
 	if err != nil {
-		return sdkerrors.Wrap(err, "contract")
+		return errors.Wrap(err, "contract")
 	}
 	if err := k.ClearContractAdmin(ctx, contractAddr, nil); err != nil {
 		return err

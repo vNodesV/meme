@@ -954,11 +954,11 @@ func (k Keeper) newQueryHandler(ctx sdk.Context, contractAddress sdk.AccAddress)
 
 // MultipliedGasMeter wraps the GasMeter from context and multiplies all reads by out defined multiplier
 type MultipliedGasMeter struct {
-	originalMeter sdk.GasMeter
+	originalMeter storetypes.GasMeter
 	GasRegister   GasRegister
 }
 
-func NewMultipliedGasMeter(originalMeter sdk.GasMeter, gr GasRegister) MultipliedGasMeter {
+func NewMultipliedGasMeter(originalMeter storetypes.GasMeter, gr GasRegister) MultipliedGasMeter {
 	return MultipliedGasMeter{originalMeter: originalMeter, GasRegister: gr}
 }
 
