@@ -67,8 +67,6 @@ var (
 	NoCustomQuerier           = keeper.NoCustomQuerier
 	StakingQuerier            = keeper.StakingQuerier
 	WasmQuerier               = keeper.WasmQuerier
-	CreateTestInput           = keeper.CreateTestInput
-	TestHandler               = keeper.TestHandler
 	NewWasmProposalHandler    = keeper.NewWasmProposalHandler
 	NewQuerier                = keeper.Querier
 	ContractFromPortID        = keeper.ContractFromPortID

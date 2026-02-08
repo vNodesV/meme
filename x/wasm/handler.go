@@ -14,7 +14,8 @@ import (
 )
 
 // NewHandler returns a handler for "wasm" type messages.
-func NewHandler(k types.ContractOpsKeeper) sdk.Handler {
+// Note: In SDK 0.50+, the sdk.Handler type is removed. This function now returns keeper.Handler type.
+func NewHandler(k types.ContractOpsKeeper) keeper.Handler {
 	msgServer := keeper.NewMsgServerImpl(k)
 
 	return func(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {

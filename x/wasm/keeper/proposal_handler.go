@@ -27,7 +27,7 @@ func NewWasmProposalHandlerX(k types.ContractOpsKeeper, enabledProposalTypes []t
 			return errors.Wrap(sdkerrors.ErrUnknownRequest, "content must not be empty")
 		}
 		if _, ok := enabledTypes[content.ProposalType()]; !ok {
-			return sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "unsupported wasm proposal content type: %q", content.ProposalType())
+			return errors.Wrapf(sdkerrors.ErrUnknownRequest, "unsupported wasm proposal content type: %q", content.ProposalType())
 		}
 		switch c := content.(type) {
 		case *types.StoreCodeProposal:
@@ -49,7 +49,7 @@ func NewWasmProposalHandlerX(k types.ContractOpsKeeper, enabledProposalTypes []t
 		case *types.UnpinCodesProposal:
 			return handleUnpinCodesProposal(ctx, k, *c)
 		default:
-			return sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "unrecognized wasm proposal content type: %T", c)
+			return errors.Wrapf(sdkerrors.ErrUnknownRequest, "unrecognized wasm proposal content type: %T", c)
 		}
 	}
 }
@@ -203,7 +203,7 @@ func handlePinCodesProposal(ctx sdk.Context, k types.ContractOpsKeeper, p types.
 	}
 	for _, v := range p.CodeIDs {
 		if err := k.PinCode(ctx, v); err != nil {
-			return sdkerrors.Wrapf(err, "code id: %d", v)
+			return errors.Wrapf(err, "code id: %d", v)
 		}
 	}
 	return nil
@@ -215,7 +215,7 @@ func handleUnpinCodesProposal(ctx sdk.Context, k types.ContractOpsKeeper, p type
 	}
 	for _, v := range p.CodeIDs {
 		if err := k.UnpinCode(ctx, v); err != nil {
-			return sdkerrors.Wrapf(err, "code id: %d", v)
+			return errors.Wrapf(err, "code id: %d", v)
 		}
 	}
 	return nil
