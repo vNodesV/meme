@@ -1,11 +1,11 @@
 package keeper
 
 import (
-	"errors"
+	stderrors "errors"
 	"strings"
 
+	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
 
 	"github.com/CosmWasm/wasmd/x/wasm/types"
@@ -25,7 +25,7 @@ func (k Keeper) bindIbcPort(ctx sdk.Context, portID string) error {
 func (k Keeper) ensureIbcPort(ctx sdk.Context, contractAddr sdk.AccAddress) (string, error) {
 	portID := PortIDForContract(contractAddr)
 	if err := k.bindIbcPort(ctx, portID); err != nil {
-		if errors.Is(err, porttypes.ErrPortAlreadyBound) {
+		if stderrors.Is(err, porttypes.ErrPortExists) {
 			return portID, nil
 		}
 		return portID, err
@@ -41,7 +41,7 @@ func PortIDForContract(addr sdk.AccAddress) string {
 
 func ContractFromPortID(portID string) (sdk.AccAddress, error) {
 	if !strings.HasPrefix(portID, portIDPrefix) {
-		return nil, sdkerrors.Wrapf(types.ErrInvalid, "without prefix")
+		return nil, errors.Wrapf(types.ErrInvalid, "without prefix")
 	}
 	return sdk.AccAddressFromBech32(portID[len(portIDPrefix):])
 }

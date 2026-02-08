@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	"cosmossdk.io/errors"
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
 
@@ -120,13 +120,13 @@ func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 // ValidateBasic performs basic validation on wasm parameters
 func (p Params) ValidateBasic() error {
 	if err := validateAccessType(p.InstantiateDefaultPermission); err != nil {
-		return errors.Wrap(err, "instantiate default permission")
+		return pkgerrors.Wrap(err, "instantiate default permission")
 	}
 	if err := validateAccessConfig(p.CodeUploadAccess); err != nil {
-		return errors.Wrap(err, "upload access")
+		return pkgerrors.Wrap(err, "upload access")
 	}
 	if err := validateMaxWasmCodeSize(p.MaxWasmCodeSize); err != nil {
-		return errors.Wrap(err, "max wasm code size")
+		return pkgerrors.Wrap(err, "max wasm code size")
 	}
 	return nil
 }
@@ -145,23 +145,23 @@ func validateAccessType(i interface{}) error {
 		return fmt.Errorf("invalid parameter type: %T", i)
 	}
 	if a == AccessTypeUnspecified {
-		return sdkerrors.Wrap(ErrEmpty, "type")
+		return errors.Wrap(ErrEmpty, "type")
 	}
 	for _, v := range AllAccessTypes {
 		if v == a {
 			return nil
 		}
 	}
-	return sdkerrors.Wrapf(ErrInvalid, "unknown type: %q", a)
+	return errors.Wrapf(ErrInvalid, "unknown type: %q", a)
 }
 
 func validateMaxWasmCodeSize(i interface{}) error {
 	a, ok := i.(uint64)
 	if !ok {
-		return sdkerrors.Wrapf(ErrInvalid, "type: %T", i)
+		return errors.Wrapf(ErrInvalid, "type: %T", i)
 	}
 	if a == 0 {
-		return sdkerrors.Wrap(ErrInvalid, "must be greater 0")
+		return errors.Wrap(ErrInvalid, "must be greater 0")
 	}
 	return nil
 }
@@ -169,17 +169,17 @@ func validateMaxWasmCodeSize(i interface{}) error {
 func (a AccessConfig) ValidateBasic() error {
 	switch a.Permission {
 	case AccessTypeUnspecified:
-		return sdkerrors.Wrap(ErrEmpty, "type")
+		return errors.Wrap(ErrEmpty, "type")
 	case AccessTypeNobody, AccessTypeEverybody:
 		if len(a.Address) != 0 {
-			return sdkerrors.Wrap(ErrInvalid, "address not allowed for this type")
+			return errors.Wrap(ErrInvalid, "address not allowed for this type")
 		}
 		return nil
 	case AccessTypeOnlyAddress:
 		_, err := sdk.AccAddressFromBech32(a.Address)
 		return err
 	}
-	return sdkerrors.Wrapf(ErrInvalid, "unknown type: %q", a.Permission)
+	return errors.Wrapf(ErrInvalid, "unknown type: %q", a.Permission)
 }
 
 func (a AccessConfig) Allowed(actor sdk.AccAddress) bool {

@@ -66,13 +66,17 @@ import (
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 )
 
+// Router is a compatibility type for the deprecated baseapp.Router
+// This is a minimal interface to maintain backward compatibility in tests
+type Router struct{}
+
 var ModuleBasics = module.NewBasicManager(
 	auth.AppModuleBasic{},
 	bank.AppModuleBasic{},
 	staking.AppModuleBasic{},
 	mint.AppModuleBasic{},
 	distribution.AppModuleBasic{},
-	gov.NewAppModuleBasic(),
+	gov.NewAppModuleBasic(nil), // Pass nil for legacy proposal handlers
 	params.AppModuleBasic{},
 	crisis.AppModuleBasic{},
 	slashing.AppModuleBasic{},
@@ -166,7 +170,7 @@ type TestKeepers struct {
 	ContractKeeper types.ContractOpsKeeper
 	WasmKeeper     *Keeper
 	IBCKeeper      *ibckeeper.Keeper
-	Router         *baseapp.Router
+	Router         *Router
 	EncodingConfig wasmappparams.EncodingConfig
 	Faucet         *TestFaucet
 }
@@ -416,7 +420,7 @@ func createTestInput(
 }
 
 // TestHandler returns a wasm handler for tests (to avoid circular imports)
-func TestHandler(k types.ContractOpsKeeper) sdk.Handler {
+func TestHandler(k types.ContractOpsKeeper) Handler {
 	return func(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
 		ctx = ctx.WithEventManager(sdk.NewEventManager())
 		switch msg := msg.(type) {

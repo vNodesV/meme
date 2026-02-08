@@ -3,6 +3,7 @@ package keeper
 import (
 	"encoding/binary"
 
+	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/CosmWasm/wasmd/x/wasm/types"
@@ -10,11 +11,11 @@ import (
 
 // CountTXDecorator ante handler to count the tx position in a block.
 type CountTXDecorator struct {
-	storeKey sdk.StoreKey
+	storeKey storetypes.StoreKey
 }
 
 // NewCountTXDecorator constructor
-func NewCountTXDecorator(storeKey sdk.StoreKey) *CountTXDecorator {
+func NewCountTXDecorator(storeKey storetypes.StoreKey) *CountTXDecorator {
 	return &CountTXDecorator{storeKey: storeKey}
 }
 
@@ -56,11 +57,11 @@ func decodeHeightCounter(bz []byte) (int64, uint32) {
 
 // LimitSimulationGasDecorator ante decorator to limit gas in simulation calls
 type LimitSimulationGasDecorator struct {
-	gasLimit *sdk.Gas
+	gasLimit *storetypes.Gas
 }
 
 // NewLimitSimulationGasDecorator constructor accepts nil value to fallback to block gas limit.
-func NewLimitSimulationGasDecorator(gasLimit *sdk.Gas) *LimitSimulationGasDecorator {
+func NewLimitSimulationGasDecorator(gasLimit *storetypes.Gas) *LimitSimulationGasDecorator {
 	if gasLimit != nil && *gasLimit == 0 {
 		panic("gas limit must not be zero")
 	}
@@ -85,12 +86,12 @@ func (d LimitSimulationGasDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simu
 
 	// apply custom node gas limit
 	if d.gasLimit != nil {
-		return next(ctx.WithGasMeter(sdk.NewGasMeter(*d.gasLimit)), tx, simulate)
+		return next(ctx.WithGasMeter(storetypes.NewGasMeter(*d.gasLimit)), tx, simulate)
 	}
 
 	// default to max block gas when set, to be on the safe side
-	if maxGas := ctx.ConsensusParams().GetBlock().MaxGas; maxGas > 0 {
-		return next(ctx.WithGasMeter(sdk.NewGasMeter(sdk.Gas(maxGas))), tx, simulate)
+	if maxGas := ctx.ConsensusParams().Block.MaxGas; maxGas > 0 {
+		return next(ctx.WithGasMeter(storetypes.NewGasMeter(storetypes.Gas(maxGas))), tx, simulate)
 	}
 	return next(ctx, tx, simulate)
 }

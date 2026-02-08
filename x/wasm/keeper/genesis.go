@@ -2,6 +2,7 @@ package keeper
 
 import (
 	abci "github.com/cometbft/cometbft/abci/types"
+	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
@@ -13,24 +14,28 @@ type ValidatorSetSource interface {
 	ApplyAndReturnValidatorSetUpdates(sdk.Context) (updates []abci.ValidatorUpdate, err error)
 }
 
+// Handler defines a function type for handling SDK messages
+// This type alias maintains backward compatibility with the deprecated sdk.Handler
+type Handler func(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error)
+
 // InitGenesis sets supply information for genesis.
 //
 // CONTRACT: all types of accounts must have been already initialized/created
-func InitGenesis(ctx sdk.Context, keeper *Keeper, data types.GenesisState, stakingKeeper ValidatorSetSource, msgHandler sdk.Handler) ([]abci.ValidatorUpdate, error) {
+func InitGenesis(ctx sdk.Context, keeper *Keeper, data types.GenesisState, stakingKeeper ValidatorSetSource, msgHandler Handler) ([]abci.ValidatorUpdate, error) {
 	contractKeeper := NewGovPermissionKeeper(keeper)
 	keeper.SetParams(ctx, data.Params)
 	var maxCodeID uint64
 	for i, code := range data.Codes {
 		err := keeper.importCode(ctx, code.CodeID, code.CodeInfo, code.CodeBytes)
 		if err != nil {
-			return nil, sdkerrors.Wrapf(err, "code %d with id: %d", i, code.CodeID)
+			return nil, errors.Wrapf(err, "code %d with id: %d", i, code.CodeID)
 		}
 		if code.CodeID > maxCodeID {
 			maxCodeID = code.CodeID
 		}
 		if code.Pinned {
 			if err := contractKeeper.PinCode(ctx, code.CodeID); err != nil {
-				return nil, sdkerrors.Wrapf(err, "contract number %d", i)
+				return nil, errors.Wrapf(err, "contract number %d", i)
 			}
 		}
 	}
@@ -39,11 +44,11 @@ func InitGenesis(ctx sdk.Context, keeper *Keeper, data types.GenesisState, staki
 	for i, contract := range data.Contracts {
 		contractAddr, err := sdk.AccAddressFromBech32(contract.ContractAddress)
 		if err != nil {
-			return nil, sdkerrors.Wrapf(err, "address in contract number %d", i)
+			return nil, errors.Wrapf(err, "address in contract number %d", i)
 		}
 		err = keeper.importContract(ctx, contractAddr, &contract.ContractInfo, contract.ContractState)
 		if err != nil {
-			return nil, sdkerrors.Wrapf(err, "contract number %d", i)
+			return nil, errors.Wrapf(err, "contract number %d", i)
 		}
 		maxContractID = i + 1 // not ideal but max(contractID) is not persisted otherwise
 	}
@@ -51,18 +56,18 @@ func InitGenesis(ctx sdk.Context, keeper *Keeper, data types.GenesisState, staki
 	for i, seq := range data.Sequences {
 		err := keeper.importAutoIncrementID(ctx, seq.IDKey, seq.Value)
 		if err != nil {
-			return nil, sdkerrors.Wrapf(err, "sequence number %d", i)
+			return nil, errors.Wrapf(err, "sequence number %d", i)
 		}
 	}
 
 	// sanity check seq values
 	seqVal := keeper.PeekAutoIncrementID(ctx, types.KeyLastCodeID)
 	if seqVal <= maxCodeID {
-		return nil, sdkerrors.Wrapf(types.ErrInvalid, "seq %s with value: %d must be greater than: %d ", string(types.KeyLastCodeID), seqVal, maxCodeID)
+		return nil, errors.Wrapf(types.ErrInvalid, "seq %s with value: %d must be greater than: %d ", string(types.KeyLastCodeID), seqVal, maxCodeID)
 	}
 	seqVal = keeper.PeekAutoIncrementID(ctx, types.KeyLastInstanceID)
 	if seqVal <= uint64(maxContractID) {
-		return nil, sdkerrors.Wrapf(types.ErrInvalid, "seq %s with value: %d must be greater than: %d ", string(types.KeyLastInstanceID), seqVal, maxContractID)
+		return nil, errors.Wrapf(types.ErrInvalid, "seq %s with value: %d must be greater than: %d ", string(types.KeyLastInstanceID), seqVal, maxContractID)
 	}
 
 	if len(data.GenMsgs) == 0 {
@@ -71,11 +76,11 @@ func InitGenesis(ctx sdk.Context, keeper *Keeper, data types.GenesisState, staki
 	for _, genTx := range data.GenMsgs {
 		msg := genTx.AsMsg()
 		if msg == nil {
-			return nil, sdkerrors.Wrapf(sdkerrors.ErrInvalidType, "unknown message")
+			return nil, errors.Wrapf(sdkerrors.ErrInvalidType, "unknown message")
 		}
 		_, err := msgHandler(ctx, msg)
 		if err != nil {
-			return nil, sdkerrors.Wrap(err, "genesis")
+			return nil, errors.Wrap(err, "genesis")
 		}
 	}
 	return stakingKeeper.ApplyAndReturnValidatorSetUpdates(ctx)

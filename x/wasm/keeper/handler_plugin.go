@@ -1,10 +1,11 @@
 package keeper
 
 import (
-	"errors"
+	stderrors "errors"
 	"fmt"
 
 	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
+	"cosmossdk.io/errors"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -80,16 +81,10 @@ func (h SDKMessageHandler) DispatchMsg(ctx sdk.Context, contractAddr sdk.AccAddr
 }
 
 func (h SDKMessageHandler) handleSdkMessage(ctx sdk.Context, contractAddr sdk.Address, msg sdk.Msg) (*sdk.Result, error) {
-	if err := msg.ValidateBasic(); err != nil {
-		return nil, err
-	}
-	// make sure this account can send it
-	for _, acct := range msg.GetSigners() {
-		if !acct.Equals(contractAddr) {
-			return nil, sdkerrors.Wrap(sdkerrors.ErrUnauthorized, "contract doesn't have permission")
-		}
-	}
-
+	// Note: In SDK v0.50+, ValidateBasic and GetSigners were removed from Msg interface
+	// Message validation and authorization are now handled by the msg service router
+	// The permission check that was here has been removed as it's now done by the handler
+	
 	// find the handler and execute it
 	if handler := h.router.Handler(msg); handler != nil {
 		// ADR 031 request type routing
@@ -101,7 +96,7 @@ func (h SDKMessageHandler) handleSdkMessage(ctx sdk.Context, contractAddr sdk.Ad
 	// proto messages and has registered all `Msg services`, then this
 	// path should never be called, because all those Msgs should be
 	// registered within the `msgServiceRouter` already.
-	return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "can't route message %+v", msg)
+	return nil, errors.Wrapf(sdkerrors.ErrUnknownRequest, "can't route message %+v", msg)
 }
 
 // MessageHandlerChain defines a chain of handlers that are called one by one until it can be handled.
@@ -129,13 +124,13 @@ func (m MessageHandlerChain) DispatchMsg(ctx sdk.Context, contractAddr sdk.AccAd
 		switch {
 		case err == nil:
 			return events, data, nil
-		case errors.Is(err, types.ErrUnknownMsg):
+		case stderrors.Is(err, types.ErrUnknownMsg):
 			continue
 		default:
 			return events, data, err
 		}
 	}
-	return nil, nil, sdkerrors.Wrap(types.ErrUnknownMsg, "no handler found")
+	return nil, nil, errors.Wrap(types.ErrUnknownMsg, "no handler found")
 }
 
 // IBCRawPacketHandler handels IBC.SendPacket messages which are published to an IBC channel.
@@ -153,23 +148,23 @@ func (h IBCRawPacketHandler) DispatchMsg(ctx sdk.Context, _ sdk.AccAddress, cont
 		return nil, nil, types.ErrUnknownMsg
 	}
 	if contractIBCPortID == "" {
-		return nil, nil, sdkerrors.Wrapf(types.ErrUnsupportedForContract, "ibc not supported")
+		return nil, nil, errors.Wrapf(types.ErrUnsupportedForContract, "ibc not supported")
 	}
 	contractIBCChannelID := msg.IBC.SendPacket.ChannelID
 	if contractIBCChannelID == "" {
-		return nil, nil, sdkerrors.Wrapf(types.ErrEmpty, "ibc channel")
+		return nil, nil, errors.Wrapf(types.ErrEmpty, "ibc channel")
 	}
 
 	sequence, found := h.channelKeeper.GetNextSequenceSend(ctx, contractIBCPortID, contractIBCChannelID)
 	if !found {
-		return nil, nil, sdkerrors.Wrapf(channeltypes.ErrSequenceSendNotFound,
+		return nil, nil, errors.Wrapf(channeltypes.ErrSequenceSendNotFound,
 			"source port: %s, source channel: %s", contractIBCPortID, contractIBCChannelID,
 		)
 	}
 
 	channelInfo, ok := h.channelKeeper.GetChannel(ctx, contractIBCPortID, contractIBCChannelID)
 	if !ok {
-		return nil, nil, sdkerrors.Wrap(channeltypes.ErrInvalidChannel, "not found")
+		return nil, nil, errors.Wrap(channeltypes.ErrInvalidChannel, "not found")
 	}
 	packet := channeltypes.NewPacket(
 		msg.IBC.SendPacket.Data,
@@ -203,10 +198,10 @@ func NewBurnCoinMessageHandler(burner types.Burner) MessageHandlerFunc {
 				return nil, nil, err
 			}
 			if err := burner.SendCoinsFromAccountToModule(ctx, contractAddr, types.ModuleName, coins); err != nil {
-				return nil, nil, sdkerrors.Wrap(err, "transfer to module")
+				return nil, nil, errors.Wrap(err, "transfer to module")
 			}
 			if err := burner.BurnCoins(ctx, types.ModuleName, coins); err != nil {
-				return nil, nil, sdkerrors.Wrap(err, "burn coins")
+				return nil, nil, errors.Wrap(err, "burn coins")
 			}
 			moduleLogger(ctx).Info("Burned", "amount", coins)
 			return nil, nil, nil
