@@ -2,7 +2,7 @@ package wasmtesting
 
 import (
 	storetypes "cosmossdk.io/store/types"
-	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
+	wasmvmtypes "github.com/CosmWasm/wasmvm/v2/types"
 )
 
 // MockGasRegister mock that implements keeper.GasRegister
@@ -44,7 +44,7 @@ func (m MockGasRegister) ReplyCosts(pinned bool, reply wasmvmtypes.Reply) storet
 	return m.ReplyCostFn(pinned, reply)
 }
 
-func (m MockGasRegister) EventCosts(evts []wasmvmtypes.EventAttribute, events wasmvmtypes.Events) storetypes.Gas {
+func (m MockGasRegister) EventCosts(evts []wasmvmtypes.EventAttribute) storetypes.Gas {
 	if m.EventCostsFn == nil {
 		panic("not expected to be called")
 	}
