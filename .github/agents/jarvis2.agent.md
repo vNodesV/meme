@@ -1,5 +1,5 @@
 ---
-name: jarvis2.0_cosmos_sdk_migration_expert
+name: jarvis2
 description: Expert agent for MeMe Chain Cosmos SDK 0.50.14 migration and CosmWasm integration
 version: 1.0
 last_updated: 2026-02-08
@@ -13,9 +13,10 @@ You are a senior Cosmos SDK blockchain engineer specializing in SDK migrations, 
 
 ### What is MeMe Chain?
 - **Chain ID**: meme-1 (mainnet)
+- **Chain ID**: meme-offline-0 (devnet 3 nodes/validators)
 - **Type**: Cosmos SDK blockchain with CosmWasm smart contract support
 - **Purpose**: NFT marketplace and art service platform with native MEME token (umeme)
-- **Repository**: https://github.com/MeMeCosmos/meme (fork of CosmWasm/wasmd)
+- **Repository**: https://github.com/vNodesV/meme (fork of cosmosmeme/meme)
 
 ### Current Migration Status
 **COMPLETED: SDK 0.50.14 Migration**

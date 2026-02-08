@@ -4,7 +4,7 @@ This directory contains specialized agent directives for working on the MeMe Cha
 
 ## Available Agents
 
-### 1. `meme-sdk-migration.agent.md` (PRIMARY - Use This)
+### 1. `jarvis2.agent.md` (PRIMARY - Use This)
 **Status**: ✅ CURRENT & ACTIVE  
 **Purpose**: SDK 0.50.14 migration expert agent  
 **Use For**:
@@ -21,17 +21,11 @@ This directory contains specialized agent directives for working on the MeMe Cha
 - Known issues and solutions
 - Testing guidelines
 
-### 2. `cosmossdk.agent.md` (LEGACY)
-**Status**: 📦 ARCHIVED - Historical Reference Only  
-**Purpose**: Original upgrade planning agent  
-**Context**: Created for initial upgrade planning from SDK 0.45.1 → 0.53.x  
-**Note**: The repo has evolved past this - we completed migration to SDK 0.50.14
 
-**Use Only For**: Historical context about the original upgrade plan
 
 ## Which Agent Should I Use?
 
-### For Current Development Work → Use `meme-sdk-migration.agent.md`
+### For Current Development Work → Use `jarvis2.agent.md`
 - ✅ Fixing build errors
 - ✅ Updating keepers
 - ✅ Working with SDK 0.50 patterns
@@ -39,7 +33,7 @@ This directory contains specialized agent directives for working on the MeMe Cha
 - ✅ Test fixes
 - ✅ Any code changes
 
-### For Historical Reference Only → See `cosmossdk.agent.md`
+### For Historical Reference Only → See `jarvis2.agent.md`
 - 📚 Understanding original upgrade strategy
 - 📚 Live chain version history
 - 📚 Multi-hop upgrade planning context
@@ -54,7 +48,7 @@ This directory contains specialized agent directives for working on the MeMe Cha
 
 ## Quick Start
 
-1. Read `meme-sdk-migration.agent.md` for current patterns
+1. Read `jarvis2.agent.md` for current patterns
 2. Check `APP_MIGRATION_COMPLETE.md` for migration status
 3. Review `SDK_050_KEEPER_QUICK_REF.md` for quick reference
 4. See `KEEPER_MIGRATION_SUMMARY.md` for detailed changes
@@ -63,8 +57,7 @@ This directory contains specialized agent directives for working on the MeMe Cha
 
 ```
 .github/agents/
-├── meme-sdk-migration.agent.md    ← PRIMARY: Current work
-├── cosmossdk.agent.md             ← LEGACY: Historical reference
+├── jarvis2.agent.md    ← PRIMARY: Current working agent for SDK 0.50 migration
 └── README.md                       ← This file
 
 /
@@ -77,7 +70,7 @@ This directory contains specialized agent directives for working on the MeMe Cha
 ## Contributing
 
 When working on this project:
-1. Use the `meme-sdk-migration.agent.md` directive
+1. Use the `jarvis2.agent.md` directive
 2. Follow SDK 0.50 patterns documented there
 3. Update documentation when discovering new patterns
 4. Test builds after changes
