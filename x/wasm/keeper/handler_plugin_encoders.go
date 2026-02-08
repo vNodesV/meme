@@ -6,12 +6,13 @@ import (
 
 	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
 	"cosmossdk.io/errors"
+	sdkmath "cosmossdk.io/math"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	ibcclienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
@@ -293,23 +294,32 @@ func EncodeIBCMsg(portSource types.ICS20TransferPortSource) func(ctx sdk.Context
 }
 
 func EncodeGovMsg(sender sdk.AccAddress, msg *wasmvmtypes.GovMsg) ([]sdk.Msg, error) {
-	var option govtypes.VoteOption
-	switch msg.Vote.Vote {
-	case wasmvmtypes.Yes:
-		option = govtypes.OptionYes
-	case wasmvmtypes.No:
-		option = govtypes.OptionNo
-	case wasmvmtypes.NoWithVeto:
-		option = govtypes.OptionNoWithVeto
-	case wasmvmtypes.Abstain:
-		option = govtypes.OptionAbstain
+	if msg.Vote == nil {
+		return nil, errors.Wrap(types.ErrUnknownMsg, "unknown variant of Gov")
 	}
-	vote := &govtypes.MsgVote{
-		ProposalId: msg.Vote.ProposalId,
-		Voter:      sender.String(),
-		Option:     option,
+	
+	voteOption, err := convertVoteOption(msg.Vote.Vote)
+	if err != nil {
+		return nil, errors.Wrap(err, "vote option")
 	}
+	
+	vote := govv1.NewMsgVote(sender, msg.Vote.ProposalId, voteOption, "")
 	return []sdk.Msg{vote}, nil
+}
+
+func convertVoteOption(vote any) (govv1.VoteOption, error) {
+	switch vote {
+	case wasmvmtypes.Yes:
+		return govv1.VoteOption_VOTE_OPTION_YES, nil
+	case wasmvmtypes.No:
+		return govv1.VoteOption_VOTE_OPTION_NO, nil
+	case wasmvmtypes.NoWithVeto:
+		return govv1.VoteOption_VOTE_OPTION_NO_WITH_VETO, nil
+	case wasmvmtypes.Abstain:
+		return govv1.VoteOption_VOTE_OPTION_ABSTAIN, nil
+	default:
+		return govv1.VoteOption_VOTE_OPTION_UNSPECIFIED, types.ErrInvalid
+	}
 }
 
 // ConvertWasmIBCTimeoutHeightToCosmosHeight converts a wasmvm type ibc timeout height to ibc module type height
@@ -335,7 +345,7 @@ func ConvertWasmCoinsToSdkCoins(coins []wasmvmtypes.Coin) (sdk.Coins, error) {
 
 // ConvertWasmCoinToSdkCoin converts a wasm vm type coin to sdk type coin
 func ConvertWasmCoinToSdkCoin(coin wasmvmtypes.Coin) (sdk.Coin, error) {
-	amount, ok := sdk.NewIntFromString(coin.Amount)
+	amount, ok := sdkmath.NewIntFromString(coin.Amount)
 	if !ok {
 		return sdk.Coin{}, errors.Wrap(sdkerrors.ErrInvalidCoins, coin.Amount+coin.Denom)
 	}
