@@ -45,6 +45,9 @@ endif
 
 ifeq ($(WITH_CLEVELDB),yes)
   build_tags += gcc
+else
+  # Use goleveldb by default (when not using cleveldb)
+  build_tags += goleveldb
 endif
 build_tags += $(BUILD_TAGS)
 build_tags := $(strip $(build_tags))
