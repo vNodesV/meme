@@ -10,7 +10,6 @@ import (
 	github_com_tendermint_tendermint_libs_bytes "github.com/cometbft/cometbft/libs/bytes"
 	query "github.com/cosmos/cosmos-sdk/types/query"
 	_ "github.com/gogo/protobuf/gogoproto"
-	grpc1 "github.com/gogo/protobuf/grpc"
 	proto "github.com/gogo/protobuf/proto"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	grpc "google.golang.org/grpc"
@@ -1020,10 +1019,10 @@ type QueryClient interface {
 }
 
 type queryClient struct {
-	cc grpc1.ClientConn
+	cc grpc.ClientConnInterface
 }
 
-func NewQueryClient(cc grpc1.ClientConn) QueryClient {
+func NewQueryClient(cc grpc.ClientConnInterface) QueryClient {
 	return &queryClient{cc}
 }
 
@@ -1162,7 +1161,7 @@ func (*UnimplementedQueryServer) PinnedCodes(ctx context.Context, req *QueryPinn
 	return nil, status.Errorf(codes.Unimplemented, "method PinnedCodes not implemented")
 }
 
-func RegisterQueryServer(s grpc1.Server, srv QueryServer) {
+func RegisterQueryServer(s grpc.ServiceRegistrar, srv QueryServer) {
 	s.RegisterService(&_Query_serviceDesc, srv)
 }
 

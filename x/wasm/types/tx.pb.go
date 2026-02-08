@@ -9,7 +9,6 @@ import (
 	github_com_cosmos_cosmos_sdk_types "github.com/cosmos/cosmos-sdk/types"
 	types "github.com/cosmos/cosmos-sdk/types"
 	_ "github.com/gogo/protobuf/gogoproto"
-	grpc1 "github.com/gogo/protobuf/grpc"
 	proto "github.com/gogo/protobuf/proto"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -627,10 +626,10 @@ type MsgClient interface {
 }
 
 type msgClient struct {
-	cc grpc1.ClientConn
+	cc grpc.ClientConnInterface
 }
 
-func NewMsgClient(cc grpc1.ClientConn) MsgClient {
+func NewMsgClient(cc grpc.ClientConnInterface) MsgClient {
 	return &msgClient{cc}
 }
 
@@ -727,7 +726,7 @@ func (*UnimplementedMsgServer) ClearAdmin(ctx context.Context, req *MsgClearAdmi
 	return nil, status.Errorf(codes.Unimplemented, "method ClearAdmin not implemented")
 }
 
-func RegisterMsgServer(s grpc1.Server, srv MsgServer) {
+func RegisterMsgServer(s grpc.ServiceRegistrar, srv MsgServer) {
 	s.RegisterService(&_Msg_serviceDesc, srv)
 }
 
