@@ -10,13 +10,11 @@ import (
 
 	"github.com/CosmWasm/wasmd/x/wasm/keeper"
 
-	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/server"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
@@ -368,13 +366,13 @@ func hasContract(state *types.GenesisState, contractAddr string) bool {
 // GenesisData contains raw and unmarshalled data from the genesis file
 type GenesisData struct {
 	GenesisFile     string
-	GenDoc          *tmtypes.GenesisDoc
+	AppGenesis      *genutiltypes.AppGenesis
 	AppState        map[string]json.RawMessage
 	WasmModuleState *types.GenesisState
 }
 
-func NewGenesisData(genesisFile string, genDoc *tmtypes.GenesisDoc, appState map[string]json.RawMessage, wasmModuleState *types.GenesisState) *GenesisData {
-	return &GenesisData{GenesisFile: genesisFile, GenDoc: genDoc, AppState: appState, WasmModuleState: wasmModuleState}
+func NewGenesisData(genesisFile string, appGenesis *genutiltypes.AppGenesis, appState map[string]json.RawMessage, wasmModuleState *types.GenesisState) *GenesisData {
+	return &GenesisData{GenesisFile: genesisFile, AppGenesis: appGenesis, AppState: appState, WasmModuleState: wasmModuleState}
 }
 
 type DefaultGenesisReader struct{}
@@ -386,7 +384,7 @@ func (d DefaultGenesisReader) ReadWasmGenesis(cmd *cobra.Command) (*GenesisData,
 	config.SetRoot(clientCtx.HomeDir)
 
 	genFile := config.GenesisFile()
-	appState, genDoc, err := genutiltypes.GenesisStateFromGenFile(genFile)
+	appState, appGenesis, err := genutiltypes.GenesisStateFromGenFile(genFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal genesis state: %w", err)
 	}
@@ -398,7 +396,7 @@ func (d DefaultGenesisReader) ReadWasmGenesis(cmd *cobra.Command) (*GenesisData,
 
 	return NewGenesisData(
 		genFile,
-		genDoc,
+		appGenesis,
 		appState,
 		&wasmGenesisState,
 	), nil
@@ -437,17 +435,17 @@ func (x DefaultGenesisIO) AlterWasmModuleState(cmd *cobra.Command, callback func
 	clientCtx := client.GetClientContextFromCmd(cmd)
 	wasmGenStateBz, err := clientCtx.Codec.MarshalJSON(g.WasmModuleState)
 	if err != nil {
-		return sdkerrors.Wrap(err, "marshal wasm genesis state")
+		return fmt.Errorf("marshal wasm genesis state: %w", err)
 	}
 
 	g.AppState[types.ModuleName] = wasmGenStateBz
 	appStateJSON, err := json.Marshal(g.AppState)
 	if err != nil {
-		return sdkerrors.Wrap(err, "marshal application genesis state")
+		return fmt.Errorf("marshal application genesis state: %w", err)
 	}
 
-	g.GenDoc.AppState = appStateJSON
-	return genutil.ExportGenesisFile(g.GenDoc, g.GenesisFile)
+	g.AppGenesis.AppState = appStateJSON
+	return genutil.ExportGenesisFile(g.AppGenesis, g.GenesisFile)
 }
 
 // contractSeqValue reads the contract sequence from the genesis or
@@ -498,9 +496,10 @@ func getActorAddress(cmd *cobra.Command) (sdk.AccAddress, error) {
 		return nil, err
 	}
 
-	homeDir := client.GetClientContextFromCmd(cmd).HomeDir
+	clientCtx := client.GetClientContextFromCmd(cmd)
+	homeDir := clientCtx.HomeDir
 	// attempt to lookup address from Keybase if no address was provided
-	kb, err := keyring.New(sdk.KeyringServiceName(), keyringBackend, homeDir, inBuf)
+	kb, err := keyring.New(sdk.KeyringServiceName(), keyringBackend, homeDir, inBuf, clientCtx.Codec)
 	if err != nil {
 		return nil, err
 	}
@@ -509,5 +508,9 @@ func getActorAddress(cmd *cobra.Command) (sdk.AccAddress, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get address from Keybase: %w", err)
 	}
-	return info.GetAddress(), nil
+	addr, err := info.GetAddress()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get address from key info: %w", err)
+	}
+	return addr, nil
 }

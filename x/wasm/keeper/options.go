@@ -3,9 +3,9 @@ package keeper
 import (
 	"fmt"
 
+	wasmvm "github.com/CosmWasm/wasmvm/v2"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/CosmWasm/wasmd/x/wasm/types"
 )
 
 type optsFn func(*Keeper)
@@ -16,7 +16,7 @@ func (f optsFn) apply(keeper *Keeper) {
 
 // WithWasmEngine is an optional constructor parameter to replace the default wasmVM engine with the
 // given one.
-func WithWasmEngine(x types.WasmerEngine) Option {
+func WithWasmEngine(x *wasmvm.VM) Option {
 	return optsFn(func(k *Keeper) {
 		k.wasmVM = x
 	})

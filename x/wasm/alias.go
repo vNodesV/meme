@@ -67,8 +67,7 @@ var (
 	NoCustomQuerier           = keeper.NoCustomQuerier
 	StakingQuerier            = keeper.StakingQuerier
 	WasmQuerier               = keeper.WasmQuerier
-	CreateTestInput           = keeper.CreateTestInput
-	TestHandler               = keeper.TestHandler
+	// CreateTestInput and TestHandler removed in SDK 0.50 - use keeper test helpers directly
 	NewWasmProposalHandler    = keeper.NewWasmProposalHandler
 	NewQuerier                = keeper.Querier
 	ContractFromPortID        = keeper.ContractFromPortID

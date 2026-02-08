@@ -10,7 +10,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 
@@ -103,7 +102,7 @@ func parseStoreCodeArgs(file string, sender sdk.AccAddress, flags *flag.FlagSet)
 	if onlyAddrStr != "" {
 		allowedAddr, err := sdk.AccAddressFromBech32(onlyAddrStr)
 		if err != nil {
-			return types.MsgStoreCode{}, sdkerrors.Wrap(err, flagInstantiateByAddress)
+			return types.MsgStoreCode{}, fmt.Errorf("%s: %w", flagInstantiateByAddress, err)
 		}
 		x := types.AccessTypeOnlyAddress.With(allowedAddr)
 		perm = &x

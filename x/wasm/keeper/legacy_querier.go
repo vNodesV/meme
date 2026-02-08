@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 
+	"cosmossdk.io/errors"
 	storetypes "cosmossdk.io/store/types"
 	abci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -112,7 +113,7 @@ func queryContractState(ctx sdk.Context, bech, queryMethod string, data []byte, 
 		return keeper.QueryRaw(ctx, contractAddr, data), nil
 	case QueryMethodContractStateSmart:
 		// we enforce a subjective gas limit on all queries to avoid infinite loops
-		ctx = ctx.WithGasMeter(sdk.NewGasMeter(gasLimit))
+		ctx = ctx.WithGasMeter(storetypes.NewGasMeter(gasLimit))
 		msg := types.RawContractMessage(data)
 		if err := msg.ValidateBasic(); err != nil {
 			return nil, errors.Wrap(err, "json msg")

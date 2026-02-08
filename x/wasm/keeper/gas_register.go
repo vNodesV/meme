@@ -5,7 +5,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 	wasmvmtypes "github.com/CosmWasm/wasmvm/v2/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
 	"github.com/CosmWasm/wasmd/x/wasm/types"
@@ -67,7 +66,7 @@ type GasRegister interface {
 	// ReplyCosts costs to to handle a message reply
 	ReplyCosts(pinned bool, reply wasmvmtypes.Reply) storetypes.Gas
 	// EventCosts costs to persist an event
-	EventCosts(attrs []wasmvmtypes.EventAttribute) storetypes.Gas
+	EventCosts(attrs []wasmvmtypes.EventAttribute, events wasmvmtypes.Array[wasmvmtypes.Event]) storetypes.Gas
 	// ToWasmVMGas converts from sdk gas to wasmvm gas
 	ToWasmVMGas(source storetypes.Gas) uint64
 	// FromWasmVMGas converts from wasmvm gas to sdk gas
@@ -169,7 +168,7 @@ func (g WasmGasRegister) ReplyCosts(pinned bool, reply wasmvmtypes.Reply) storet
 			attrs = append(attrs, e.Attributes...)
 		}
 		// apply free tier on the whole set not per event
-		eventGas += g.EventCosts(attrs)
+		eventGas += g.EventCosts(attrs, reply.Result.Ok.Events)
 	}
 	return eventGas + g.InstantiateContractCosts(pinned, msgLen)
 }

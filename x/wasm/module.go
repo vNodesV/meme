@@ -27,6 +27,7 @@ import (
 var (
 	_ module.AppModule      = AppModule{}
 	_ module.AppModuleBasic = AppModuleBasic{}
+	_ module.HasABCIEndBlock = AppModule{}
 )
 
 // Module init related flags
@@ -104,6 +105,12 @@ type AppModule struct {
 // should be set to 1.
 func (AppModule) ConsensusVersion() uint64 { return 1 }
 
+// IsOnePerModuleType implements the depinject.OnePerModuleType interface.
+func (AppModule) IsOnePerModuleType() {}
+
+// IsAppModule implements the appmodule.AppModule interface.
+func (AppModule) IsAppModule() {}
+
 // NewAppModule creates a new AppModule object
 func NewAppModule(cdc codec.Codec, keeper *Keeper, validatorSetSource keeper.ValidatorSetSource) AppModule {
 	return AppModule{
@@ -117,21 +124,16 @@ func NewAppModule(cdc codec.Codec, keeper *Keeper, validatorSetSource keeper.Val
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(keeper.NewDefaultPermissionKeeper(am.keeper)))
 	types.RegisterQueryServer(cfg.QueryServer(), NewQuerier(am.keeper))
-}
 
-func (am AppModule) LegacyQuerierHandler(amino *codec.LegacyAmino) sdk.Querier { //nolint:staticcheck
-	return keeper.NewLegacyQuerier(am.keeper, am.keeper.QueryGasLimit())
+	// Register legacy querier handler for backward compatibility (if needed)
+	// Note: sdk.Querier type is removed in SDK 0.50, use gRPC queries instead
 }
 
 // RegisterInvariants registers the wasm module invariants.
 func (am AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {}
 
-// Route returns the message routing key for the wasm module.
-func (am AppModule) Route() sdk.Route {
-	return sdk.NewRoute(RouterKey, NewHandler(keeper.NewDefaultPermissionKeeper(am.keeper)))
-}
-
 // QuerierRoute returns the wasm module's querier route name.
+// Deprecated: QuerierRoute is kept for backward compatibility but queries should use gRPC
 func (AppModule) QuerierRoute() string {
 	return QuerierRoute
 }
@@ -141,7 +143,9 @@ func (AppModule) QuerierRoute() string {
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) []abci.ValidatorUpdate {
 	var genesisState GenesisState
 	cdc.MustUnmarshalJSON(data, &genesisState)
-	validators, err := InitGenesis(ctx, am.keeper, genesisState, am.validatorSetSource, am.Route().Handler())
+	// Create handler for InitGenesis
+	handler := NewHandler(keeper.NewDefaultPermissionKeeper(am.keeper))
+	validators, err := InitGenesis(ctx, am.keeper, genesisState, am.validatorSetSource, handler)
 	if err != nil {
 		panic(err)
 	}
@@ -155,13 +159,11 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 	return cdc.MustMarshalJSON(gs)
 }
 
-// BeginBlock returns the begin blocker for the wasm module.
-func (am AppModule) BeginBlock(_ sdk.Context, _ abci.RequestBeginBlock) {}
-
 // EndBlock returns the end blocker for the wasm module. It returns no validator
-// updates.
-func (AppModule) EndBlock(_ sdk.Context, _ abci.RequestEndBlock) []abci.ValidatorUpdate {
-	return []abci.ValidatorUpdate{}
+// updates. This implements the HasABCIEndBlock interface for SDK 0.50+
+func (AppModule) EndBlock(ctx context.Context) ([]abci.ValidatorUpdate, error) {
+	// No end block logic needed for wasm module
+	return []abci.ValidatorUpdate{}, nil
 }
 
 // ____________________________________________________________________________
@@ -174,12 +176,14 @@ func (AppModule) GenerateGenesisState(simState *module.SimulationState) {
 }
 
 // ProposalContents doesn't return any content functions for governance proposals.
+// Deprecated: ProposalContents is deprecated and may be removed in future versions
 func (AppModule) ProposalContents(simState module.SimulationState) []simtypes.WeightedProposalContent {
 	return nil
 }
 
-// RandomizedParams creates randomized bank param changes for the simulator.
-func (am AppModule) RandomizedParams(r *rand.Rand) []simtypes.ParamChange {
+// RandomizedParams creates randomized wasm param changes for the simulator.
+// Returns LegacyParamChange for SDK 0.50+ compatibility
+func (am AppModule) RandomizedParams(r *rand.Rand) []simtypes.LegacyParamChange {
 	return simulation.ParamChanges(r, am.cdc)
 }
 
