@@ -9,15 +9,15 @@ import (
 // WasmerEngine defines the WASM contract runtime engine.
 type WasmerEngine interface {
 
-	// Create will compile the wasm code, and store the resulting pre-compile
-	// as well as the original code. Both can be referenced later via CodeID
+	// StoreCode will compile the wasm code, and store the resulting pre-compile
+	// as well as the original code. Both can be referenced later via checksum.
 	// This must be done one time for given code, after which it can be
-	// instatitated many times, and each instance called many times.
+	// instantiated many times, and each instance called many times.
 	//
 	// For example, the code for all ERC-20 contracts should be the same.
 	// This function stores the code for that contract only once, but it can
 	// be instantiated with custom inputs in the future.
-	Create(code wasmvm.WasmCode) (wasmvm.Checksum, error)
+	StoreCode(code wasmvm.WasmCode, gasLimit uint64) (wasmvm.Checksum, uint64, error)
 
 	// AnalyzeCode will statically analyze the code.
 	// Currently just reports if it exposes all IBC entry points.
@@ -42,7 +42,7 @@ type WasmerEngine interface {
 		gasMeter wasmvm.GasMeter,
 		gasLimit uint64,
 		deserCost wasmvmtypes.UFraction,
-	) (*wasmvmtypes.Response, uint64, error)
+	) (*wasmvmtypes.ContractResult, uint64, error)
 
 	// Execute calls a given contract. Since the only difference between contracts with the same CodeID is the
 	// data in their local storage, and their address in the outside world, we need no ContractID here.
@@ -61,7 +61,7 @@ type WasmerEngine interface {
 		gasMeter wasmvm.GasMeter,
 		gasLimit uint64,
 		deserCost wasmvmtypes.UFraction,
-	) (*wasmvmtypes.Response, uint64, error)
+	) (*wasmvmtypes.ContractResult, uint64, error)
 
 	// Query allows a client to execute a contract-specific query. If the result is not empty, it should be
 	// valid json-encoded data to return to the client.
@@ -76,7 +76,7 @@ type WasmerEngine interface {
 		gasMeter wasmvm.GasMeter,
 		gasLimit uint64,
 		deserCost wasmvmtypes.UFraction,
-	) ([]byte, uint64, error)
+	) (*wasmvmtypes.QueryResult, uint64, error)
 
 	// Migrate will migrate an existing contract to a new code binary.
 	// This takes storage of the data from the original contract and the CodeID of the new contract that should
@@ -94,7 +94,7 @@ type WasmerEngine interface {
 		gasMeter wasmvm.GasMeter,
 		gasLimit uint64,
 		deserCost wasmvmtypes.UFraction,
-	) (*wasmvmtypes.Response, uint64, error)
+	) (*wasmvmtypes.ContractResult, uint64, error)
 
 	// Sudo runs an existing contract in read/write mode (like Execute), but is never exposed to external callers
 	// (either transactions or government proposals), but can only be called by other native Go modules directly.
@@ -111,7 +111,7 @@ type WasmerEngine interface {
 		gasMeter wasmvm.GasMeter,
 		gasLimit uint64,
 		deserCost wasmvmtypes.UFraction,
-	) (*wasmvmtypes.Response, uint64, error)
+	) (*wasmvmtypes.ContractResult, uint64, error)
 
 	// Reply is called on the original dispatching contract after running a submessage
 	Reply(
@@ -124,7 +124,7 @@ type WasmerEngine interface {
 		gasMeter wasmvm.GasMeter,
 		gasLimit uint64,
 		deserCost wasmvmtypes.UFraction,
-	) (*wasmvmtypes.Response, uint64, error)
+	) (*wasmvmtypes.ContractResult, uint64, error)
 
 	// GetCode will load the original wasm code for the given code id.
 	// This will only succeed if that code id was previously returned from
@@ -150,7 +150,7 @@ type WasmerEngine interface {
 		gasMeter wasmvm.GasMeter,
 		gasLimit uint64,
 		deserCost wasmvmtypes.UFraction,
-	) (*wasmvmtypes.IBC3ChannelOpenResponse, uint64, error)
+	) (*wasmvmtypes.IBCChannelOpenResult, uint64, error)
 
 	// IBCChannelConnect is available on IBC-enabled contracts and is a hook to call into
 	// during the handshake pahse
@@ -164,7 +164,7 @@ type WasmerEngine interface {
 		gasMeter wasmvm.GasMeter,
 		gasLimit uint64,
 		deserCost wasmvmtypes.UFraction,
-	) (*wasmvmtypes.IBCBasicResponse, uint64, error)
+	) (*wasmvmtypes.IBCBasicResult, uint64, error)
 
 	// IBCChannelClose is available on IBC-enabled contracts and is a hook to call into
 	// at the end of the channel lifetime
@@ -178,7 +178,7 @@ type WasmerEngine interface {
 		gasMeter wasmvm.GasMeter,
 		gasLimit uint64,
 		deserCost wasmvmtypes.UFraction,
-	) (*wasmvmtypes.IBCBasicResponse, uint64, error)
+	) (*wasmvmtypes.IBCBasicResult, uint64, error)
 
 	// IBCPacketReceive is available on IBC-enabled contracts and is called when an incoming
 	// packet is received on a channel belonging to this contract
@@ -207,7 +207,7 @@ type WasmerEngine interface {
 		gasMeter wasmvm.GasMeter,
 		gasLimit uint64,
 		deserCost wasmvmtypes.UFraction,
-	) (*wasmvmtypes.IBCBasicResponse, uint64, error)
+	) (*wasmvmtypes.IBCBasicResult, uint64, error)
 
 	// IBCPacketTimeout is available on IBC-enabled contracts and is called when an
 	// outgoing packet (previously sent by this contract) will provably never be executed.
@@ -222,7 +222,7 @@ type WasmerEngine interface {
 		gasMeter wasmvm.GasMeter,
 		gasLimit uint64,
 		deserCost wasmvmtypes.UFraction,
-	) (*wasmvmtypes.IBCBasicResponse, uint64, error)
+	) (*wasmvmtypes.IBCBasicResult, uint64, error)
 
 	// Pin pins a code to an in-memory cache, such that is
 	// always loaded quickly when executed.
@@ -239,45 +239,68 @@ type WasmerEngine interface {
 	GetMetrics() (*wasmvmtypes.Metrics, error)
 }
 
-// StoreAdapter bridges SDK KVStore to wasmvm KVStore interface.
-// This is necessary because wasmvm v2 uses its own Iterator interface
-// which differs from the SDK's Iterator interface.
+// StoreAdapter bridges the SDK KVStore to the wasmvm KVStore interface.
 type StoreAdapter struct {
 	parent storetypes.KVStore
 }
 
-// NewStoreAdapter creates a new StoreAdapter wrapping an SDK KVStore
-func NewStoreAdapter(s storetypes.KVStore) *StoreAdapter {
-	if s == nil {
+// NewStoreAdapter wraps the given store for wasmvm consumption.
+func NewStoreAdapter(store storetypes.KVStore) StoreAdapter {
+	if store == nil {
 		panic("store must not be nil")
 	}
-	return &StoreAdapter{parent: s}
+	return StoreAdapter{parent: store}
 }
 
-// Get returns the value for the given key, or nil if not found
 func (s StoreAdapter) Get(key []byte) []byte {
 	return s.parent.Get(key)
 }
 
-// Set stores the key-value pair
 func (s StoreAdapter) Set(key, value []byte) {
 	s.parent.Set(key, value)
 }
 
-// Delete removes the key-value pair
 func (s StoreAdapter) Delete(key []byte) {
 	s.parent.Delete(key)
 }
 
-// Iterator returns an iterator over the given range [start, end)
-// The SDK Iterator implements the wasmvm Iterator interface directly
 func (s StoreAdapter) Iterator(start, end []byte) wasmvmtypes.Iterator {
-	return s.parent.Iterator(start, end)
+	return StoreIterator{parent: s.parent.Iterator(start, end)}
 }
 
-// ReverseIterator returns a reverse iterator over the given range [start, end)
-// The SDK Iterator implements the wasmvm Iterator interface directly
 func (s StoreAdapter) ReverseIterator(start, end []byte) wasmvmtypes.Iterator {
-	return s.parent.ReverseIterator(start, end)
+	return StoreIterator{parent: s.parent.ReverseIterator(start, end)}
 }
 
+// StoreIterator adapts an SDK iterator to the wasmvm iterator interface.
+type StoreIterator struct {
+	parent storetypes.Iterator
+}
+
+func (i StoreIterator) Domain() (start []byte, end []byte) {
+	return i.parent.Domain()
+}
+
+func (i StoreIterator) Valid() bool {
+	return i.parent.Valid()
+}
+
+func (i StoreIterator) Next() {
+	i.parent.Next()
+}
+
+func (i StoreIterator) Key() (key []byte) {
+	return i.parent.Key()
+}
+
+func (i StoreIterator) Value() (value []byte) {
+	return i.parent.Value()
+}
+
+func (i StoreIterator) Error() error {
+	return i.parent.Error()
+}
+
+func (i StoreIterator) Close() error {
+	return i.parent.Close()
+}

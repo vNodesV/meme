@@ -105,14 +105,18 @@ func NewKeeper(
 			capabilities[i] = strings.TrimSpace(capabilities[i])
 		}
 	}
-	
+
 	// Initialize VM with wasmvm v2 config
-	wasmer, err := wasmvm.NewVM(
-		filepath.Join(homeDir, "wasm"),
-		capabilities,
-		contractMemoryLimit,
+	wasmer, err := wasmvm.NewVMWithConfig(
+		wasmvmtypes.VMConfig{
+			Cache: wasmvmtypes.CacheOptions{
+				BaseDir:                  filepath.Join(homeDir, "wasm"),
+				AvailableCapabilities:    capabilities,
+				MemoryCacheSizeBytes:     wasmvmtypes.NewSizeMebi(wasmConfig.MemoryCacheSize),
+				InstanceMemoryLimitBytes: wasmvmtypes.NewSizeMebi(contractMemoryLimit),
+			},
+		},
 		wasmConfig.ContractDebugMode,
-		wasmConfig.MemoryCacheSize,
 	)
 	if err != nil {
 		panic(err)
@@ -195,7 +199,7 @@ func (k Keeper) create(ctx sdk.Context, creator sdk.AccAddress, wasmCode []byte,
 	}
 	// Consume the gas used by the VM
 	k.consumeRuntimeGas(ctx, gasUsed)
-	
+
 	report, err := k.wasmVM.AnalyzeCode(checksum)
 	if err != nil {
 		return 0, errors.Wrap(types.ErrCreateFailed, err.Error())
@@ -232,7 +236,7 @@ func (k Keeper) importCode(ctx sdk.Context, codeID uint64, codeInfo types.CodeIn
 	if err != nil {
 		return errors.Wrap(types.ErrCreateFailed, err.Error())
 	}
-	
+
 	// In wasmvm v2, StoreCode requires a gas limit parameter
 	gasLimit := k.runtimeGasForContract(ctx)
 	newCodeHash, gasUsed, err := k.wasmVM.StoreCode(wasmCode, gasLimit)
@@ -241,7 +245,7 @@ func (k Keeper) importCode(ctx sdk.Context, codeID uint64, codeInfo types.CodeIn
 	}
 	// Consume the gas used by the VM
 	k.consumeRuntimeGas(ctx, gasUsed)
-	
+
 	if !bytes.Equal(codeInfo.CodeHash, newCodeHash) {
 		return errors.Wrap(types.ErrInvalid, "code hashes not same")
 	}
@@ -446,7 +450,7 @@ func (k Keeper) migrate(ctx sdk.Context, contractAddress sdk.AccAddress, caller 
 	prefixStoreKey := types.GetContractStorePrefix(contractAddress)
 	prefixStore := prefix.NewStore(ctx.KVStore(k.storeKey), prefixStoreKey)
 	gas := k.runtimeGasForContract(ctx)
-	res, gasUsed, err := k.wasmVM.Migrate(newCodeInfo.CodeHash, env, msg, types.NewStoreAdapter(prefixStore), cosmwasmAPI, &querier, k.gasMeter(ctx), gas, costJSONDeserialization)
+	res, gasUsed, err := k.wasmVM.Migrate(newCodeInfo.CodeHash, env, msg, types.NewStoreAdapter(prefixStore), cosmwasmAPI, querier, k.gasMeter(ctx), gas, costJSONDeserialization)
 	k.consumeRuntimeGas(ctx, gasUsed)
 	if err != nil {
 		return nil, errors.Wrap(types.ErrMigrationFailed, err.Error())

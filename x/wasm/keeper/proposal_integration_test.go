@@ -482,7 +482,7 @@ func TestPinCodesProposal(t *testing.T) {
 	govKeeper, wasmKeeper := keepers.GovKeeper, keepers.WasmKeeper
 
 	mock := wasmtesting.MockWasmer{
-		CreateFn:      wasmtesting.NoOpCreateFn,
+		StoreCodeFn:   wasmtesting.NoOpStoreCodeFn,
 		AnalyzeCodeFn: wasmtesting.WithoutIBCAnalyzeFn,
 	}
 	var (
@@ -569,7 +569,7 @@ func TestUnpinCodesProposal(t *testing.T) {
 	govKeeper, wasmKeeper := keepers.GovKeeper, keepers.WasmKeeper
 
 	mock := wasmtesting.MockWasmer{
-		CreateFn:      wasmtesting.NoOpCreateFn,
+		StoreCodeFn:   wasmtesting.NoOpStoreCodeFn,
 		AnalyzeCodeFn: wasmtesting.WithoutIBCAnalyzeFn,
 	}
 	var (
