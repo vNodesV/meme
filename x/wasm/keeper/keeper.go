@@ -845,9 +845,9 @@ func (k *Keeper) handleContractResponse(
 	msgs []wasmvmtypes.SubMsg,
 	attrs []wasmvmtypes.EventAttribute,
 	data []byte,
-	evts wasmvmtypes.Events,
+	evts wasmvmtypes.Array[wasmvmtypes.Event],
 ) ([]byte, error) {
-	attributeGasCost := k.gasRegister.EventCosts(attrs)
+	attributeGasCost := k.gasRegister.EventCosts(attrs, evts)
 	ctx.GasMeter().ConsumeGas(attributeGasCost, "Custom contract event attributes")
 	// emit all events from this contract itself
 	if len(attrs) != 0 {

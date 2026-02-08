@@ -175,7 +175,7 @@ func (g WasmGasRegister) ReplyCosts(pinned bool, reply wasmvmtypes.Reply) storet
 }
 
 // EventCosts costs to persist an event
-func (g WasmGasRegister) EventCosts(attrs []wasmvmtypes.EventAttribute) storetypes.Gas {
+func (g WasmGasRegister) EventCosts(attrs []wasmvmtypes.EventAttribute, events wasmvmtypes.Array[wasmvmtypes.Event]) storetypes.Gas {
 	gas, remainingFreeTier := g.eventAttributeCosts(attrs, g.c.EventAttributeDataFreeTier)
 	for _, e := range events {
 		gas += g.c.CustomEventCost

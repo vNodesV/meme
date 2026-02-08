@@ -382,7 +382,7 @@ func StakingQuerier(keeper types.StakingKeeper, distKeeper types.DistributionKee
 	}
 }
 
-func sdkToDelegations(ctx sdk.Context, keeper types.StakingKeeper, delegations []stakingtypes.Delegation) (wasmvmtypes.Delegations, error) {
+func sdkToDelegations(ctx sdk.Context, keeper types.StakingKeeper, delegations []stakingtypes.Delegation) (wasmvmtypes.Array[wasmvmtypes.Delegation], error) {
 	result := make([]wasmvmtypes.Delegation, len(delegations))
 	bondDenom := keeper.BondDenom(ctx)
 
@@ -527,8 +527,8 @@ func WasmQuerier(k wasmQueryKeeper) func(ctx sdk.Context, request *wasmvmtypes.W
 }
 
 // ConvertSdkCoinsToWasmCoins covert sdk type to wasmvm coins type
-func ConvertSdkCoinsToWasmCoins(coins []sdk.Coin) wasmvmtypes.Coins {
-	converted := make(wasmvmtypes.Coins, len(coins))
+func ConvertSdkCoinsToWasmCoins(coins []sdk.Coin) wasmvmtypes.Array[wasmvmtypes.Coin] {
+	converted := make(wasmvmtypes.Array[wasmvmtypes.Coin], len(coins))
 	for i, c := range coins {
 		converted[i] = ConvertSdkCoinToWasmCoin(c)
 	}
