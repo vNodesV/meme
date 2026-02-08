@@ -103,15 +103,20 @@ func initRootCmd(rootCmd *cobra.Command, encodingConfig params.EncodingConfig) {
 	accountAddressCodec := addresscodec.NewBech32Codec(cfg.GetBech32AccountAddrPrefix())
 	validatorAddressCodec := addresscodec.NewBech32Codec(cfg.GetBech32ValidatorAddrPrefix())
 	
+	// Get basic manager for CLI commands
+	// Note: This uses empty structs for modules, which is OK for InitCmd, ValidateGenesisCmd, etc.
+	// For commands that need codecs (like AddTxCommands), they are handled separately
+	basicManager := app.MakeBasicManager()
+	
 	rootCmd.AddCommand(
-		genutilcli.InitCmd(app.ModuleBasics, app.DefaultNodeHome),
+		genutilcli.InitCmd(basicManager, app.DefaultNodeHome),
 		genutilcli.CollectGenTxsCmd(banktypes.GenesisBalancesIterator{}, app.DefaultNodeHome, genutiltypes.DefaultMessageValidator, validatorAddressCodec),
-		genutilcli.GenTxCmd(app.ModuleBasics, encodingConfig.TxConfig, banktypes.GenesisBalancesIterator{}, app.DefaultNodeHome, accountAddressCodec),
-		genutilcli.ValidateGenesisCmd(app.ModuleBasics),
+		genutilcli.GenTxCmd(basicManager, encodingConfig.TxConfig, banktypes.GenesisBalancesIterator{}, app.DefaultNodeHome, accountAddressCodec),
+		genutilcli.ValidateGenesisCmd(basicManager),
 		AddGenesisAccountCmd(app.DefaultNodeHome),
 		AddGenesisWasmMsgCmd(app.DefaultNodeHome),
 		tmcli.NewCompletionCmd(rootCmd, true),
-		// testnetCmd(app.ModuleBasics, banktypes.GenesisBalancesIterator{}),
+		// testnetCmd(basicManager, banktypes.GenesisBalancesIterator{}),
 		debug.Cmd(),
 	)
 
@@ -137,9 +142,12 @@ func addModuleInitFlags(startCmd *cobra.Command) {
 
 // initAppConfig returns custom app config template and config
 func initAppConfig() (string, interface{}) {
-	// For now, return empty template and nil config to use SDK defaults
-	// This can be customized later if needed
-	return "", nil
+	// Use default config from server package
+	srvCfg := config.DefaultConfig()
+	
+	// Customize config if needed (for now using defaults)
+	
+	return "", srvCfg
 }
 
 func queryCommand() *cobra.Command {
@@ -159,7 +167,8 @@ func queryCommand() *cobra.Command {
 		authcmd.QueryTxCmd(),
 	)
 
-	app.ModuleBasics.AddQueryCommands(cmd)
+	// TODO: Enable AutoCLI or manually add module query commands
+	// app.ModuleBasics.AddQueryCommands(cmd)
 	cmd.PersistentFlags().String(flags.FlagChainID, "", "The network chain ID")
 
 	return cmd
@@ -186,7 +195,8 @@ func txCommand() *cobra.Command {
 		authcmd.GetDecodeCommand(),
 	)
 
-	app.ModuleBasics.AddTxCommands(cmd)
+	// TODO: Enable AutoCLI or manually add module tx commands
+	// app.ModuleBasics.AddTxCommands(cmd)
 	cmd.PersistentFlags().String(flags.FlagChainID, "", "The network chain ID")
 
 	return cmd
