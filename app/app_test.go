@@ -2,11 +2,10 @@ package app
 
 import (
 	"encoding/json"
-	"os"
 	"testing"
 
-	db "github.com/cometbft/cometbft-db"
-	"github.com/cometbft/cometbft/libs/log"
+	"cosmossdk.io/log"
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,33 +16,45 @@ import (
 
 var emptyWasmOpts []wasm.Option = nil
 
+// EmptyAppOptions is a stub implementing AppOptions
+type EmptyAppOptions struct{}
+
+// Get implements AppOptions
+func (EmptyAppOptions) Get(string) interface{} { return nil }
+
 func TestWasmdExport(t *testing.T) {
-	db := db.NewMemDB()
-	gapp := NewWasmApp(log.NewTMLogger(log.NewSyncWriter(os.Stdout)), db, nil, true, map[int64]bool{}, DefaultNodeHome, 0, MakeEncodingConfig(), wasm.EnableAllProposals, EmptyBaseAppOptions{}, emptyWasmOpts)
+	db, err := dbm.NewDB("test", dbm.MemDBBackend, "")
+	require.NoError(t, err)
+	gapp := NewWasmApp(log.NewNopLogger(), db, nil, true, map[int64]bool{}, DefaultNodeHome, 0, MakeEncodingConfig(), wasm.EnableAllProposals, EmptyAppOptions{}, emptyWasmOpts)
 
 	genesisState := NewDefaultGenesisState()
 	stateBytes, err := json.MarshalIndent(genesisState, "", "  ")
 	require.NoError(t, err)
 
 	// Initialize the chain
-	gapp.InitChain(
-		abci.RequestInitChain{
-			Validators:    []abci.ValidatorUpdate{},
-			AppStateBytes: stateBytes,
-		},
-	)
-	gapp.Commit()
+	_, err = gapp.InitChain(&abci.RequestInitChain{
+		Validators:    []abci.ValidatorUpdate{},
+		AppStateBytes: stateBytes,
+	})
+	require.NoError(t, err)
+	_, err = gapp.FinalizeBlock(&abci.RequestFinalizeBlock{
+		Height: 1,
+	})
+	require.NoError(t, err)
+	_, err = gapp.Commit()
+	require.NoError(t, err)
 
 	// Making a new app object with the db, so that initchain hasn't been called
-	newGapp := NewWasmApp(log.NewTMLogger(log.NewSyncWriter(os.Stdout)), db, nil, true, map[int64]bool{}, DefaultNodeHome, 0, MakeEncodingConfig(), wasm.EnableAllProposals, EmptyBaseAppOptions{}, emptyWasmOpts)
+	newGapp := NewWasmApp(log.NewNopLogger(), db, nil, true, map[int64]bool{}, DefaultNodeHome, 0, MakeEncodingConfig(), wasm.EnableAllProposals, EmptyAppOptions{}, emptyWasmOpts)
 	_, err = newGapp.ExportAppStateAndValidators(false, []string{})
 	require.NoError(t, err, "ExportAppStateAndValidators should not have an error")
 }
 
 // ensure that blocked addresses are properly set in bank keeper
 func TestBlockedAddrs(t *testing.T) {
-	db := db.NewMemDB()
-	gapp := NewWasmApp(log.NewTMLogger(log.NewSyncWriter(os.Stdout)), db, nil, true, map[int64]bool{}, DefaultNodeHome, 0, MakeEncodingConfig(), wasm.EnableAllProposals, EmptyBaseAppOptions{}, emptyWasmOpts)
+	db, err := dbm.NewDB("test", dbm.MemDBBackend, "")
+	require.NoError(t, err)
+	gapp := NewWasmApp(log.NewNopLogger(), db, nil, true, map[int64]bool{}, DefaultNodeHome, 0, MakeEncodingConfig(), wasm.EnableAllProposals, EmptyAppOptions{}, emptyWasmOpts)
 
 	for acc := range maccPerms {
 		t.Run(acc, func(t *testing.T) {
@@ -98,13 +109,21 @@ func setGenesis(gapp *WasmApp) error {
 	}
 
 	// Initialize the chain
-	gapp.InitChain(
-		abci.RequestInitChain{
-			Validators:    []abci.ValidatorUpdate{},
-			AppStateBytes: stateBytes,
-		},
-	)
+	_, err = gapp.InitChain(&abci.RequestInitChain{
+		Validators:    []abci.ValidatorUpdate{},
+		AppStateBytes: stateBytes,
+	})
+	if err != nil {
+		return err
+	}
 
-	gapp.Commit()
-	return nil
+	_, err = gapp.FinalizeBlock(&abci.RequestFinalizeBlock{
+		Height: 1,
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = gapp.Commit()
+	return err
 }
