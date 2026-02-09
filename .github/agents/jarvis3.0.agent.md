@@ -1,5 +1,5 @@
 ---
-name: jarvis2
+name: jarvis3.0
 description: Expert agent for Cosmos SDK 0.50.14 full stack, GO and CosmWasm coding, migration and integration
 version: 1.0
 last_updated: 2026-02-08
