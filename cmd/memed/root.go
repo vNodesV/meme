@@ -11,8 +11,9 @@ import (
 	"cosmossdk.io/store/snapshots"
 	snapshottypes "cosmossdk.io/store/snapshots/types"
 	storetypes "cosmossdk.io/store/types"
-	dbm "github.com/cosmos/cosmos-db"
+	cmtcfg "github.com/cometbft/cometbft/config"
 	tmcli "github.com/cometbft/cometbft/libs/cli"
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/config"
@@ -22,6 +23,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/rpc"
 	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/cosmos/cosmos-sdk/server"
+	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/version"
@@ -88,7 +90,8 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 			}
 
 			customAppTemplate, customAppConfig := initAppConfig()
-			return server.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, nil)
+			cmtConfig := cmtcfg.DefaultConfig()
+			return server.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, cmtConfig)
 		},
 	}
 
@@ -102,12 +105,12 @@ func initRootCmd(rootCmd *cobra.Command, encodingConfig params.EncodingConfig) {
 	cfg := sdk.GetConfig()
 	accountAddressCodec := addresscodec.NewBech32Codec(cfg.GetBech32AccountAddrPrefix())
 	validatorAddressCodec := addresscodec.NewBech32Codec(cfg.GetBech32ValidatorAddrPrefix())
-	
+
 	// Get basic manager for CLI commands
 	// Note: This uses empty structs for modules, which is OK for InitCmd, ValidateGenesisCmd, etc.
 	// For commands that need codecs (like AddTxCommands), they are handled separately
 	basicManager := app.MakeBasicManager()
-	
+
 	rootCmd.AddCommand(
 		genutilcli.InitCmd(basicManager, app.DefaultNodeHome),
 		genutilcli.CollectGenTxsCmd(banktypes.GenesisBalancesIterator{}, app.DefaultNodeHome, genutiltypes.DefaultMessageValidator, validatorAddressCodec),
@@ -123,7 +126,7 @@ func initRootCmd(rootCmd *cobra.Command, encodingConfig params.EncodingConfig) {
 	// Create app creator and exporter functions
 	appCreatorFunc := makeAppCreator(encodingConfig)
 	appExporterFunc := makeAppExporter(encodingConfig)
-	
+
 	server.AddCommands(rootCmd, app.DefaultNodeHome, appCreatorFunc, appExporterFunc, addModuleInitFlags)
 
 	// add keybase, auxiliary RPC, query, and tx child commands
@@ -142,11 +145,11 @@ func addModuleInitFlags(startCmd *cobra.Command) {
 
 // initAppConfig returns custom app config template and config
 func initAppConfig() (string, interface{}) {
-	// Use default config from server package
-	srvCfg := config.DefaultConfig()
-	
+	// Use default config from server package (must return pointer for Viper)
+	srvCfg := serverconfig.DefaultConfig()
+
 	// Customize config if needed (for now using defaults)
-	
+
 	return "", srvCfg
 }
 
@@ -206,59 +209,59 @@ func txCommand() *cobra.Command {
 func makeAppCreator(encodingConfig params.EncodingConfig) servertypes.AppCreator {
 	return func(logger log.Logger, db dbm.DB, traceStore io.Writer, appOpts servertypes.AppOptions) servertypes.Application {
 
-	var cache storetypes.MultiStorePersistentCache
+		var cache storetypes.MultiStorePersistentCache
 
-	if cast.ToBool(appOpts.Get(server.FlagInterBlockCache)) {
-		cache = store.NewCommitKVStoreCacheManager()
-	}
+		if cast.ToBool(appOpts.Get(server.FlagInterBlockCache)) {
+			cache = store.NewCommitKVStoreCacheManager()
+		}
 
-	skipUpgradeHeights := make(map[int64]bool)
-	for _, h := range cast.ToIntSlice(appOpts.Get(server.FlagUnsafeSkipUpgrades)) {
-		skipUpgradeHeights[int64(h)] = true
-	}
+		skipUpgradeHeights := make(map[int64]bool)
+		for _, h := range cast.ToIntSlice(appOpts.Get(server.FlagUnsafeSkipUpgrades)) {
+			skipUpgradeHeights[int64(h)] = true
+		}
 
-	pruningOpts, err := server.GetPruningOptionsFromFlags(appOpts)
-	if err != nil {
-		panic(err)
-	}
+		pruningOpts, err := server.GetPruningOptionsFromFlags(appOpts)
+		if err != nil {
+			panic(err)
+		}
 
-	snapshotDir := filepath.Join(cast.ToString(appOpts.Get(flags.FlagHome)), "data", "snapshots")
-	snapshotDB, err := dbm.NewDB("metadata", dbm.GoLevelDBBackend, snapshotDir)
-	if err != nil {
-		panic(err)
-	}
-	snapshotStore, err := snapshots.NewStore(snapshotDB, snapshotDir)
-	if err != nil {
-		panic(err)
-	}
-	
-	snapshotOptions := snapshottypes.NewSnapshotOptions(
-		cast.ToUint64(appOpts.Get(server.FlagStateSyncSnapshotInterval)),
-		cast.ToUint32(appOpts.Get(server.FlagStateSyncSnapshotKeepRecent)),
-	)
-	
-	var wasmOpts []wasm.Option
-	if cast.ToBool(appOpts.Get("telemetry.enabled")) {
-		wasmOpts = append(wasmOpts, wasmkeeper.WithVMCacheMetrics(prometheus.DefaultRegisterer))
-	}
+		snapshotDir := filepath.Join(cast.ToString(appOpts.Get(flags.FlagHome)), "data", "snapshots")
+		snapshotDB, err := dbm.NewDB("metadata", dbm.GoLevelDBBackend, snapshotDir)
+		if err != nil {
+			panic(err)
+		}
+		snapshotStore, err := snapshots.NewStore(snapshotDB, snapshotDir)
+		if err != nil {
+			panic(err)
+		}
 
-	return app.NewWasmApp(logger, db, traceStore, true, skipUpgradeHeights,
-		cast.ToString(appOpts.Get(flags.FlagHome)),
-		cast.ToUint(appOpts.Get(server.FlagInvCheckPeriod)),
-		encodingConfig,
-		app.GetEnabledProposals(),
-		appOpts,
-		wasmOpts,
-		baseapp.SetPruning(pruningOpts),
-		baseapp.SetMinGasPrices(cast.ToString(appOpts.Get(server.FlagMinGasPrices))),
-		baseapp.SetHaltHeight(cast.ToUint64(appOpts.Get(server.FlagHaltHeight))),
-		baseapp.SetHaltTime(cast.ToUint64(appOpts.Get(server.FlagHaltTime))),
-		baseapp.SetMinRetainBlocks(cast.ToUint64(appOpts.Get(server.FlagMinRetainBlocks))),
-		baseapp.SetInterBlockCache(cache),
-		baseapp.SetTrace(cast.ToBool(appOpts.Get(server.FlagTrace))),
-		baseapp.SetIndexEvents(cast.ToStringSlice(appOpts.Get(server.FlagIndexEvents))),
-		baseapp.SetSnapshot(snapshotStore, snapshotOptions),
-	)
+		snapshotOptions := snapshottypes.NewSnapshotOptions(
+			cast.ToUint64(appOpts.Get(server.FlagStateSyncSnapshotInterval)),
+			cast.ToUint32(appOpts.Get(server.FlagStateSyncSnapshotKeepRecent)),
+		)
+
+		var wasmOpts []wasm.Option
+		if cast.ToBool(appOpts.Get("telemetry.enabled")) {
+			wasmOpts = append(wasmOpts, wasmkeeper.WithVMCacheMetrics(prometheus.DefaultRegisterer))
+		}
+
+		return app.NewWasmApp(logger, db, traceStore, true, skipUpgradeHeights,
+			cast.ToString(appOpts.Get(flags.FlagHome)),
+			cast.ToUint(appOpts.Get(server.FlagInvCheckPeriod)),
+			encodingConfig,
+			app.GetEnabledProposals(),
+			appOpts,
+			wasmOpts,
+			baseapp.SetPruning(pruningOpts),
+			baseapp.SetMinGasPrices(cast.ToString(appOpts.Get(server.FlagMinGasPrices))),
+			baseapp.SetHaltHeight(cast.ToUint64(appOpts.Get(server.FlagHaltHeight))),
+			baseapp.SetHaltTime(cast.ToUint64(appOpts.Get(server.FlagHaltTime))),
+			baseapp.SetMinRetainBlocks(cast.ToUint64(appOpts.Get(server.FlagMinRetainBlocks))),
+			baseapp.SetInterBlockCache(cache),
+			baseapp.SetTrace(cast.ToBool(appOpts.Get(server.FlagTrace))),
+			baseapp.SetIndexEvents(cast.ToStringSlice(appOpts.Get(server.FlagIndexEvents))),
+			baseapp.SetSnapshot(snapshotStore, snapshotOptions),
+		)
 	}
 }
 
@@ -266,34 +269,34 @@ func makeAppCreator(encodingConfig params.EncodingConfig) servertypes.AppCreator
 func makeAppExporter(encodingConfig params.EncodingConfig) servertypes.AppExporter {
 	return func(logger log.Logger, db dbm.DB, traceStore io.Writer, height int64, forZeroHeight bool, jailAllowedAddrs []string, appOpts servertypes.AppOptions, modulesToExport []string) (servertypes.ExportedApp, error) {
 
-	var wasmApp *app.WasmApp
-	homePath, ok := appOpts.Get(flags.FlagHome).(string)
-	if !ok || homePath == "" {
-		return servertypes.ExportedApp{}, errors.New("application home is not set")
-	}
-
-	loadLatest := height == -1
-	var emptyWasmOpts []wasm.Option
-	wasmApp = app.NewWasmApp(
-		logger,
-		db,
-		traceStore,
-		loadLatest,
-		map[int64]bool{},
-		homePath,
-		cast.ToUint(appOpts.Get(server.FlagInvCheckPeriod)),
-		encodingConfig,
-		app.GetEnabledProposals(),
-		appOpts,
-		emptyWasmOpts,
-	)
-
-	if height != -1 {
-		if err := wasmApp.LoadHeight(height); err != nil {
-			return servertypes.ExportedApp{}, err
+		var wasmApp *app.WasmApp
+		homePath, ok := appOpts.Get(flags.FlagHome).(string)
+		if !ok || homePath == "" {
+			return servertypes.ExportedApp{}, errors.New("application home is not set")
 		}
-	}
 
-	return wasmApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs)
+		loadLatest := height == -1
+		var emptyWasmOpts []wasm.Option
+		wasmApp = app.NewWasmApp(
+			logger,
+			db,
+			traceStore,
+			loadLatest,
+			map[int64]bool{},
+			homePath,
+			cast.ToUint(appOpts.Get(server.FlagInvCheckPeriod)),
+			encodingConfig,
+			app.GetEnabledProposals(),
+			appOpts,
+			emptyWasmOpts,
+		)
+
+		if height != -1 {
+			if err := wasmApp.LoadHeight(height); err != nil {
+				return servertypes.ExportedApp{}, err
+			}
+		}
+
+		return wasmApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs)
 	}
 }
