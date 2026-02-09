@@ -631,6 +631,9 @@ func NewWasmApp(
 	}
 	app.basicManager = module.NewBasicManagerFromManager(app.mm, basicOverrides)
 
+	// SDK 0.50 requirement: Register all interfaces BEFORE registering services
+	// This must be called before RegisterServices to ensure all type URLs are registered
+	app.basicManager.RegisterInterfaces(interfaceRegistry)
 
 	app.configurator = module.NewConfigurator(app.appCodec, app.MsgServiceRouter(), app.GRPCQueryRouter())
 	app.mm.RegisterServices(app.configurator)
