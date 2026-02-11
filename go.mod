@@ -1,4 +1,6 @@
-go 1.23
+go 1.23.2
+
+toolchain go1.25.7
 
 module github.com/CosmWasm/wasmd
 
