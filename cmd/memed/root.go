@@ -176,12 +176,15 @@ func txCommand() *cobra.Command {
 	// The upgrade module's GetTxCmd() returns an empty parent command.
 	// Add the software-upgrade and cancel-software-upgrade subcommands
 	// so that "memed tx upgrade software-upgrade" works.
+	// The SDK 0.45.1 commands omit AddTxFlagsToCmd, so we add standard
+	// tx flags (--from, --fees, --gas, --node, --keyring-backend, etc.).
 	upgradeCmd, _, _ := cmd.Find([]string{"upgrade"})
 	if upgradeCmd != nil {
-		upgradeCmd.AddCommand(
-			upgradecli.NewCmdSubmitUpgradeProposal(),
-			upgradecli.NewCmdSubmitCancelUpgradeProposal(),
-		)
+		submitCmd := upgradecli.NewCmdSubmitUpgradeProposal()
+		flags.AddTxFlagsToCmd(submitCmd)
+		cancelCmd := upgradecli.NewCmdSubmitCancelUpgradeProposal()
+		flags.AddTxFlagsToCmd(cancelCmd)
+		upgradeCmd.AddCommand(submitCmd, cancelCmd)
 	}
 
 	cmd.PersistentFlags().String(flags.FlagChainID, "", "The network chain ID")
