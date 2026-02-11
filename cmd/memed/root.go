@@ -24,6 +24,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
+	upgradecli "github.com/cosmos/cosmos-sdk/x/upgrade/client/cli"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
@@ -171,6 +172,18 @@ func txCommand() *cobra.Command {
 	)
 
 	app.ModuleBasics.AddTxCommands(cmd)
+
+	// The upgrade module's GetTxCmd() returns an empty parent command.
+	// Add the software-upgrade and cancel-software-upgrade subcommands
+	// so that "memed tx upgrade software-upgrade" works.
+	upgradeCmd, _, _ := cmd.Find([]string{"upgrade"})
+	if upgradeCmd != nil {
+		upgradeCmd.AddCommand(
+			upgradecli.NewCmdSubmitUpgradeProposal(),
+			upgradecli.NewCmdSubmitCancelUpgradeProposal(),
+		)
+	}
+
 	cmd.PersistentFlags().String(flags.FlagChainID, "", "The network chain ID")
 
 	return cmd
