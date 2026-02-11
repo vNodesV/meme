@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 
 	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
@@ -55,7 +56,7 @@ func (app *WasmApp) RegisterUpgradeHandlers() {
 	// SDK 0.47. The "Consensus" and "crisis" store keys are new in SDK 0.50.
 	upgradeInfo, err := app.upgradeKeeper.ReadUpgradeInfoFromDisk()
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("failed to read upgrade info from disk: %w", err))
 	}
 
 	if upgradeInfo.Name == UpgradeName && !app.upgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
