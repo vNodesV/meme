@@ -11,6 +11,8 @@ import (
 	"cosmossdk.io/store/snapshots"
 	snapshottypes "cosmossdk.io/store/snapshots/types"
 	storetypes "cosmossdk.io/store/types"
+	feegrantcli "cosmossdk.io/x/feegrant/client/cli"
+	upgradecli "cosmossdk.io/x/upgrade/client/cli"
 	cmtcfg "github.com/cometbft/cometbft/config"
 	tmcli "github.com/cometbft/cometbft/libs/cli"
 	dbm "github.com/cosmos/cosmos-db"
@@ -26,13 +28,21 @@ import (
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/version"
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	authzcli "github.com/cosmos/cosmos-sdk/x/authz/client/cli"
+	bankcli "github.com/cosmos/cosmos-sdk/x/bank/client/cli"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
+	distrcli "github.com/cosmos/cosmos-sdk/x/distribution/client/cli"
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
+	govcli "github.com/cosmos/cosmos-sdk/x/gov/client/cli"
+	stakingcli "github.com/cosmos/cosmos-sdk/x/staking/client/cli"
+	ibccli "github.com/cosmos/ibc-go/v8/modules/core/client/cli"
+	transfercli "github.com/cosmos/ibc-go/v8/modules/apps/transfer/client/cli"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
@@ -40,6 +50,7 @@ import (
 	"github.com/CosmWasm/wasmd/app"
 	"github.com/CosmWasm/wasmd/app/params"
 	"github.com/CosmWasm/wasmd/x/wasm"
+	wasmcli "github.com/CosmWasm/wasmd/x/wasm/client/cli"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 )
@@ -132,8 +143,8 @@ func initRootCmd(rootCmd *cobra.Command, encodingConfig params.EncodingConfig) {
 	// add keybase, auxiliary RPC, query, and tx child commands
 	rootCmd.AddCommand(
 		server.StatusCommand(),
-		queryCommand(),
-		txCommand(),
+		queryCommand(basicManager),
+		txCommand(basicManager),
 		keys.Commands(),
 	)
 }
@@ -153,7 +164,7 @@ func initAppConfig() (string, interface{}) {
 	return "", srvCfg
 }
 
-func queryCommand() *cobra.Command {
+func queryCommand(basicManager module.BasicManager) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                        "query",
 		Aliases:                    []string{"q"},
@@ -170,14 +181,16 @@ func queryCommand() *cobra.Command {
 		authcmd.QueryTxCmd(),
 	)
 
-	// TODO: Enable AutoCLI or manually add module query commands
-	// app.ModuleBasics.AddQueryCommands(cmd)
+	// AddQueryCommands registers query commands from modules that implement
+	// GetQueryCmd() (ibc, transfer, wasm). Core SDK modules use AutoCLI for
+	// queries in SDK 0.50 and do not implement GetQueryCmd().
+	basicManager.AddQueryCommands(cmd)
 	cmd.PersistentFlags().String(flags.FlagChainID, "", "The network chain ID")
 
 	return cmd
 }
 
-func txCommand() *cobra.Command {
+func txCommand(basicManager module.BasicManager) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                        "tx",
 		Short:                      "Transactions subcommands",
@@ -185,6 +198,10 @@ func txCommand() *cobra.Command {
 		SuggestionsMinimumDistance: 2,
 		RunE:                       client.ValidateCmd,
 	}
+
+	cfg := sdk.GetConfig()
+	accCodec := addresscodec.NewBech32Codec(cfg.GetBech32AccountAddrPrefix())
+	valCodec := addresscodec.NewBech32Codec(cfg.GetBech32ValidatorAddrPrefix())
 
 	cmd.AddCommand(
 		authcmd.GetSignCommand(),
@@ -196,10 +213,21 @@ func txCommand() *cobra.Command {
 		authcmd.GetBroadcastCommand(),
 		authcmd.GetEncodeCommand(),
 		authcmd.GetDecodeCommand(),
+		flags.LineBreak,
+		// Module tx commands requiring address codecs
+		bankcli.NewTxCmd(accCodec),
+		stakingcli.NewTxCmd(valCodec, accCodec),
+		distrcli.NewTxCmd(valCodec, accCodec),
+		govcli.NewTxCmd(nil),
+		authzcli.GetTxCmd(accCodec),
+		feegrantcli.GetTxCmd(accCodec),
+		upgradecli.GetTxCmd(accCodec),
+		// IBC and wasm tx commands (no address codecs needed)
+		ibccli.GetTxCmd(),
+		transfercli.NewTxCmd(),
+		wasmcli.GetTxCmd(),
 	)
 
-	// TODO: Enable AutoCLI or manually add module tx commands
-	// app.ModuleBasics.AddTxCommands(cmd)
 	cmd.PersistentFlags().String(flags.FlagChainID, "", "The network chain ID")
 
 	return cmd
