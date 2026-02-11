@@ -1,8 +1,13 @@
-go 1.23
+go 1.23.2
+
+toolchain go1.25.7
 
 module github.com/CosmWasm/wasmd
 
 require (
+	cosmossdk.io/api v0.9.2
+	cosmossdk.io/client/v2 v2.0.0-beta.3
+	cosmossdk.io/core v0.11.3
 	cosmossdk.io/errors v1.0.2
 	cosmossdk.io/log v1.6.1
 	cosmossdk.io/math v1.5.3
@@ -48,10 +53,7 @@ require (
 	cloud.google.com/go/iam v1.5.2 // indirect
 	cloud.google.com/go/monitoring v1.24.2 // indirect
 	cloud.google.com/go/storage v1.50.0 // indirect
-	cosmossdk.io/api v0.9.2 // indirect
-	cosmossdk.io/client/v2 v2.0.0-beta.3 // indirect
 	cosmossdk.io/collections v1.3.1 // indirect
-	cosmossdk.io/core v0.11.3 // indirect
 	cosmossdk.io/depinject v1.2.1 // indirect
 	cosmossdk.io/schema v1.1.0 // indirect
 	cosmossdk.io/x/circuit v0.1.1 // indirect
