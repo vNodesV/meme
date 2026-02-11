@@ -51,6 +51,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/cosmos-sdk/x/consensus"
 	consensuskeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
 	crisiskeeper "github.com/cosmos/cosmos-sdk/x/crisis/keeper"
@@ -250,6 +251,7 @@ func NewWasmApp(
 		evidencetypes.StoreKey, ibctransfertypes.StoreKey,
 		feegrant.StoreKey, authzkeeper.StoreKey, wasm.StoreKey,
 		IBCStoreKey, consensuskeeper.StoreKey, capabilitytypes.StoreKey,
+		crisistypes.StoreKey,
 	)
 	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey)
 	memKeys := storetypes.NewMemoryStoreKeys(capabilitytypes.MemStoreKey)
@@ -532,6 +534,7 @@ func NewWasmApp(
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.accountKeeper, app.bankKeeper, app.interfaceRegistry),
 		ibc.NewAppModule(app.ibcKeeper),
 		params.NewAppModule(app.paramsKeeper),
+		consensus.NewAppModule(appCodec, app.consensusKeeper),
 		transferModule,
 		crisis.NewAppModule(&app.crisisKeeper, skipGenesisInvariants, app.getSubspace(crisistypes.ModuleName)), // always be last to make sure that it checks for all invariants and not only part of them
 	)
@@ -685,9 +688,15 @@ func NewWasmApp(
 	}
 
 	app.SetAnteHandler(anteHandler)
+	app.SetPreBlocker(app.PreBlocker)
 	app.SetInitChainer(app.InitChainer)
 	app.SetBeginBlocker(app.BeginBlocker)
 	app.SetEndBlocker(app.EndBlocker)
+
+	// Register upgrade handlers for SDK 0.47 → 0.50 migration.
+	// Must be called after RegisterServices (so migrations are registered)
+	// and before LoadLatestVersion (so the store loader is set before loading).
+	app.RegisterUpgradeHandlers()
 
 	if loadLatest {
 		if err := app.LoadLatestVersion(); err != nil {
@@ -706,6 +715,11 @@ func NewWasmApp(
 
 // Name returns the name of the App
 func (app *WasmApp) Name() string { return app.BaseApp.Name() }
+
+// PreBlocker application updates every pre block
+func (app *WasmApp) PreBlocker(ctx sdk.Context, _ *abci.RequestFinalizeBlock) (*sdk.ResponsePreBlock, error) {
+	return app.mm.PreBlock(ctx)
+}
 
 // BeginBlocker application updates every begin block
 func (app *WasmApp) BeginBlocker(ctx sdk.Context) (sdk.BeginBlock, error) {
@@ -821,6 +835,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(ibctransfertypes.ModuleName)
 	paramsKeeper.Subspace(IBCStoreKey)
 	paramsKeeper.Subspace(wasm.ModuleName)
+	paramsKeeper.Subspace(baseapp.Paramspace).WithKeyTable(paramstypes.ConsensusParamsKeyTable())
 
 	return paramsKeeper
 }
