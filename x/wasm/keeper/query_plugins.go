@@ -2,24 +2,22 @@ package keeper
 
 import (
 	"encoding/json"
-	stderrors "errors"
+	"errors"
 	"fmt"
 	"strings"
 
-	"cosmossdk.io/errors"
-	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	channeltypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
 
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 
-	wasmvmtypes "github.com/CosmWasm/wasmvm/v2/types"
-	abci "github.com/cometbft/cometbft/abci/types"
+	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	abci "github.com/tendermint/tendermint/abci/types"
 )
 
 type QueryHandler struct {
@@ -50,7 +48,7 @@ func (q QueryHandler) Query(request wasmvmtypes.QueryRequest, gasLimit uint64) (
 	// set a limit for a subCtx
 	sdkGas := q.gasRegister.FromWasmVMGas(gasLimit)
 	// discard all changes/ events in subCtx by not committing the cached context
-	subCtx, _ := q.Ctx.WithGasMeter(storetypes.NewGasMeter(sdkGas)).CacheContext()
+	subCtx, _ := q.Ctx.WithGasMeter(sdk.NewGasMeter(sdkGas)).CacheContext()
 
 	// make sure we charge the higher level context even on panic
 	defer func() {
@@ -65,7 +63,7 @@ func (q QueryHandler) Query(request wasmvmtypes.QueryRequest, gasLimit uint64) (
 
 	// special mappings to system error (which are not redacted)
 	var noSuchContract *types.ErrNoSuchContract
-	if ok := stderrors.As(err, &noSuchContract); ok {
+	if ok := errors.As(err, &noSuchContract); ok {
 		err = wasmvmtypes.NoSuchContract{Addr: noSuchContract.Addr}
 	}
 
@@ -172,7 +170,7 @@ func BankQuerier(bankKeeper types.BankViewKeeper) func(ctx sdk.Context, request 
 		if request.AllBalances != nil {
 			addr, err := sdk.AccAddressFromBech32(request.AllBalances.Address)
 			if err != nil {
-				return nil, errors.Wrap(sdkerrors.ErrInvalidAddress, request.AllBalances.Address)
+				return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, request.AllBalances.Address)
 			}
 			coins := bankKeeper.GetAllBalances(ctx, addr)
 			res := wasmvmtypes.AllBalancesResponse{
@@ -183,7 +181,7 @@ func BankQuerier(bankKeeper types.BankViewKeeper) func(ctx sdk.Context, request 
 		if request.Balance != nil {
 			addr, err := sdk.AccAddressFromBech32(request.Balance.Address)
 			if err != nil {
-				return nil, errors.Wrap(sdkerrors.ErrInvalidAddress, request.Balance.Address)
+				return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, request.Balance.Address)
 			}
 			coin := bankKeeper.GetBalance(ctx, addr, request.Balance.Denom)
 			res := wasmvmtypes.BalanceResponse{
@@ -213,7 +211,7 @@ func IBCQuerier(wasm contractMetaDataSource, channelKeeper types.ChannelKeeper) 
 		}
 		if request.ListChannels != nil {
 			portID := request.ListChannels.PortID
-			channels := make([]wasmvmtypes.IBCChannel, 0)
+			channels := make(wasmvmtypes.IBCChannels, 0)
 			channelKeeper.IterateChannels(ctx, func(ch channeltypes.IdentifiedChannel) bool {
 				// it must match the port and be in open state
 				if (portID == "" || portID == ch.PortId) && ch.State == channeltypes.OPEN {
@@ -294,7 +292,7 @@ func StargateQuerier(queryRouter GRPCQueryRouter) func(ctx sdk.Context, request 
 			Data: msg.Data,
 			Path: msg.Path,
 		}
-		res, err := route(ctx, &req)
+		res, err := route(ctx, req)
 		if err != nil {
 			return nil, err
 		}
@@ -348,7 +346,7 @@ func StakingQuerier(keeper types.StakingKeeper, distKeeper types.DistributionKee
 		if request.AllDelegations != nil {
 			delegator, err := sdk.AccAddressFromBech32(request.AllDelegations.Delegator)
 			if err != nil {
-				return nil, errors.Wrap(sdkerrors.ErrInvalidAddress, request.AllDelegations.Delegator)
+				return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, request.AllDelegations.Delegator)
 			}
 			sdkDels := keeper.GetAllDelegatorDelegations(ctx, delegator)
 			delegations, err := sdkToDelegations(ctx, keeper, sdkDels)
@@ -363,11 +361,11 @@ func StakingQuerier(keeper types.StakingKeeper, distKeeper types.DistributionKee
 		if request.Delegation != nil {
 			delegator, err := sdk.AccAddressFromBech32(request.Delegation.Delegator)
 			if err != nil {
-				return nil, errors.Wrap(sdkerrors.ErrInvalidAddress, request.Delegation.Delegator)
+				return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, request.Delegation.Delegator)
 			}
 			validator, err := sdk.ValAddressFromBech32(request.Delegation.Validator)
 			if err != nil {
-				return nil, errors.Wrap(sdkerrors.ErrInvalidAddress, request.Delegation.Validator)
+				return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, request.Delegation.Validator)
 			}
 
 			var res wasmvmtypes.DelegationResponse
@@ -384,25 +382,25 @@ func StakingQuerier(keeper types.StakingKeeper, distKeeper types.DistributionKee
 	}
 }
 
-func sdkToDelegations(ctx sdk.Context, keeper types.StakingKeeper, delegations []stakingtypes.Delegation) (wasmvmtypes.Array[wasmvmtypes.Delegation], error) {
+func sdkToDelegations(ctx sdk.Context, keeper types.StakingKeeper, delegations []stakingtypes.Delegation) (wasmvmtypes.Delegations, error) {
 	result := make([]wasmvmtypes.Delegation, len(delegations))
 	bondDenom := keeper.BondDenom(ctx)
 
 	for i, d := range delegations {
 		delAddr, err := sdk.AccAddressFromBech32(d.DelegatorAddress)
 		if err != nil {
-			return nil, errors.Wrap(err, "delegator address")
+			return nil, sdkerrors.Wrap(err, "delegator address")
 		}
 		valAddr, err := sdk.ValAddressFromBech32(d.ValidatorAddress)
 		if err != nil {
-			return nil, errors.Wrap(err, "validator address")
+			return nil, sdkerrors.Wrap(err, "validator address")
 		}
 
 		// shares to amount logic comes from here:
 		// https://github.com/cosmos/cosmos-sdk/blob/v0.38.3/x/staking/keeper/querier.go#L404
 		val, found := keeper.GetValidator(ctx, valAddr)
 		if !found {
-			return nil, errors.Wrap(stakingtypes.ErrNoValidatorFound, "can't load validator for delegation")
+			return nil, sdkerrors.Wrap(stakingtypes.ErrNoValidatorFound, "can't load validator for delegation")
 		}
 		amount := sdk.NewCoin(bondDenom, val.TokensFromShares(d.Shares).TruncateInt())
 
@@ -418,15 +416,15 @@ func sdkToDelegations(ctx sdk.Context, keeper types.StakingKeeper, delegations [
 func sdkToFullDelegation(ctx sdk.Context, keeper types.StakingKeeper, distKeeper types.DistributionKeeper, delegation stakingtypes.Delegation) (*wasmvmtypes.FullDelegation, error) {
 	delAddr, err := sdk.AccAddressFromBech32(delegation.DelegatorAddress)
 	if err != nil {
-		return nil, errors.Wrap(err, "delegator address")
+		return nil, sdkerrors.Wrap(err, "delegator address")
 	}
 	valAddr, err := sdk.ValAddressFromBech32(delegation.ValidatorAddress)
 	if err != nil {
-		return nil, errors.Wrap(err, "validator address")
+		return nil, sdkerrors.Wrap(err, "validator address")
 	}
 	val, found := keeper.GetValidator(ctx, valAddr)
 	if !found {
-		return nil, errors.Wrap(stakingtypes.ErrNoValidatorFound, "can't load validator for delegation")
+		return nil, sdkerrors.Wrap(stakingtypes.ErrNoValidatorFound, "can't load validator for delegation")
 	}
 	bondDenom := keeper.BondDenom(ctx)
 	amount := sdk.NewCoin(bondDenom, val.TokensFromShares(delegation.Shares).TruncateInt())
@@ -492,23 +490,23 @@ func WasmQuerier(k wasmQueryKeeper) func(ctx sdk.Context, request *wasmvmtypes.W
 		case request.Smart != nil:
 			addr, err := sdk.AccAddressFromBech32(request.Smart.ContractAddr)
 			if err != nil {
-				return nil, errors.Wrap(sdkerrors.ErrInvalidAddress, request.Smart.ContractAddr)
+				return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, request.Smart.ContractAddr)
 			}
 			msg := types.RawContractMessage(request.Smart.Msg)
 			if err := msg.ValidateBasic(); err != nil {
-				return nil, errors.Wrap(err, "json msg")
+				return nil, sdkerrors.Wrap(err, "json msg")
 			}
 			return k.QuerySmart(ctx, addr, msg)
 		case request.Raw != nil:
 			addr, err := sdk.AccAddressFromBech32(request.Raw.ContractAddr)
 			if err != nil {
-				return nil, errors.Wrap(sdkerrors.ErrInvalidAddress, request.Raw.ContractAddr)
+				return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, request.Raw.ContractAddr)
 			}
 			return k.QueryRaw(ctx, addr, request.Raw.Key), nil
 		case request.ContractInfo != nil:
 			addr, err := sdk.AccAddressFromBech32(request.ContractInfo.ContractAddr)
 			if err != nil {
-				return nil, errors.Wrap(sdkerrors.ErrInvalidAddress, request.ContractInfo.ContractAddr)
+				return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, request.ContractInfo.ContractAddr)
 			}
 			info := k.GetContractInfo(ctx, addr)
 			if info == nil {
@@ -529,8 +527,8 @@ func WasmQuerier(k wasmQueryKeeper) func(ctx sdk.Context, request *wasmvmtypes.W
 }
 
 // ConvertSdkCoinsToWasmCoins covert sdk type to wasmvm coins type
-func ConvertSdkCoinsToWasmCoins(coins []sdk.Coin) wasmvmtypes.Array[wasmvmtypes.Coin] {
-	converted := make(wasmvmtypes.Array[wasmvmtypes.Coin], len(coins))
+func ConvertSdkCoinsToWasmCoins(coins []sdk.Coin) wasmvmtypes.Coins {
+	converted := make(wasmvmtypes.Coins, len(coins))
 	for i, c := range coins {
 		converted[i] = ConvertSdkCoinToWasmCoin(c)
 	}

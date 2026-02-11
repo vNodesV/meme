@@ -5,13 +5,11 @@ import (
 	"encoding/binary"
 	"runtime/debug"
 
-	"cosmossdk.io/errors"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"cosmossdk.io/store/prefix"
-	storetypes "cosmossdk.io/store/types"
+	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/query"
@@ -23,13 +21,13 @@ var _ types.QueryServer = &grpcQuerier{}
 
 type grpcQuerier struct {
 	cdc           codec.Codec
-	storeKey      storetypes.StoreKey
+	storeKey      sdk.StoreKey
 	keeper        types.ViewKeeper
-	queryGasLimit storetypes.Gas
+	queryGasLimit sdk.Gas
 }
 
 // NewGrpcQuerier constructor
-func NewGrpcQuerier(cdc codec.Codec, storeKey storetypes.StoreKey, keeper types.ViewKeeper, queryGasLimit storetypes.Gas) *grpcQuerier { //nolint:revive
+func NewGrpcQuerier(cdc codec.Codec, storeKey sdk.StoreKey, keeper types.ViewKeeper, queryGasLimit sdk.Gas) *grpcQuerier { //nolint:revive
 	return &grpcQuerier{cdc: cdc, storeKey: storeKey, keeper: keeper, queryGasLimit: queryGasLimit}
 }
 
@@ -90,7 +88,7 @@ func (q grpcQuerier) ContractsByCode(c context.Context, req *types.QueryContract
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
 	if req.CodeId == 0 {
-		return nil, errors.Wrap(types.ErrInvalid, "code id")
+		return nil, sdkerrors.Wrap(types.ErrInvalid, "code id")
 	}
 	ctx := sdk.UnwrapSDKContext(c)
 	r := make([]string, 0)
@@ -174,13 +172,13 @@ func (q grpcQuerier) SmartContractState(c context.Context, req *types.QuerySmart
 	if err != nil {
 		return nil, err
 	}
-	ctx := sdk.UnwrapSDKContext(c).WithGasMeter(storetypes.NewGasMeter(q.queryGasLimit))
+	ctx := sdk.UnwrapSDKContext(c).WithGasMeter(sdk.NewGasMeter(q.queryGasLimit))
 	// recover from out-of-gas panic
 	defer func() {
 		if r := recover(); r != nil {
 			switch rType := r.(type) {
-			case storetypes.ErrorOutOfGas:
-				err = errors.Wrapf(sdkerrors.ErrOutOfGas,
+			case sdk.ErrorOutOfGas:
+				err = sdkerrors.Wrapf(sdkerrors.ErrOutOfGas,
 					"out of gas in location: %v; gasWanted: %d, gasUsed: %d",
 					rType.Descriptor, ctx.GasMeter().Limit(), ctx.GasMeter().GasConsumed(),
 				)
@@ -212,7 +210,7 @@ func (q grpcQuerier) Code(c context.Context, req *types.QueryCodeRequest) (*type
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
 	if req.CodeId == 0 {
-		return nil, errors.Wrap(types.ErrInvalid, "code id")
+		return nil, sdkerrors.Wrap(types.ErrInvalid, "code id")
 	}
 	rsp, err := queryCode(sdk.UnwrapSDKContext(c), req.CodeId, q.keeper)
 	switch {
@@ -284,7 +282,7 @@ func queryCode(ctx sdk.Context, codeID uint64, keeper types.ViewKeeper) (*types.
 
 	code, err := keeper.GetByteCode(ctx, codeID)
 	if err != nil {
-		return nil, errors.Wrap(err, "loading wasm code")
+		return nil, sdkerrors.Wrap(err, "loading wasm code")
 	}
 
 	return &types.QueryCodeResponse{CodeInfoResponse: &info, Data: code}, nil

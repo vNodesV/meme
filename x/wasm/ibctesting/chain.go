@@ -6,35 +6,37 @@ import (
 	"testing"
 	"time"
 
-	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/crypto/tmhash"
-	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	tmprotoversion "github.com/cometbft/cometbft/proto/tendermint/version"
-	tmtypes "github.com/cometbft/cometbft/types"
-	tmversion "github.com/cometbft/cometbft/version"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
-	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	capabilitykeeper "github.com/cosmos/cosmos-sdk/x/capability/keeper"
+	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	"github.com/cosmos/cosmos-sdk/x/staking/teststaking"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
-	"github.com/cosmos/ibc-go/v8/modules/core/exported"
-	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
-	"github.com/cosmos/ibc-go/v8/modules/core/types"
-	ibctmtypes "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
-	ibctesting "github.com/cosmos/ibc-go/v8/testing"
-	"github.com/cosmos/ibc-go/v8/testing/mock"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v2/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v2/modules/core/24-host"
+	"github.com/cosmos/ibc-go/v2/modules/core/exported"
+	ibckeeper "github.com/cosmos/ibc-go/v2/modules/core/keeper"
+	"github.com/cosmos/ibc-go/v2/modules/core/types"
+	ibctmtypes "github.com/cosmos/ibc-go/v2/modules/light-clients/07-tendermint/types"
+	ibctesting "github.com/cosmos/ibc-go/v2/testing"
+	"github.com/cosmos/ibc-go/v2/testing/mock"
 	"github.com/stretchr/testify/require"
+	abci "github.com/tendermint/tendermint/abci/types"
+	"github.com/tendermint/tendermint/crypto/tmhash"
+	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+	tmprotoversion "github.com/tendermint/tendermint/proto/tendermint/version"
+	tmtypes "github.com/tendermint/tendermint/types"
+	tmversion "github.com/tendermint/tendermint/version"
 
 	wasmd "github.com/CosmWasm/wasmd/app"
 	"github.com/CosmWasm/wasmd/x/wasm"
@@ -312,23 +314,11 @@ func (chain *TestChain) GetValsAtHeight(height int64) (*tmtypes.ValidatorSet, bo
 
 	valSet := stakingtypes.Validators(histInfo.Valset)
 
-	tmValidators, err := toCmtValidators(valSet, sdk.DefaultPowerReduction)
+	tmValidators, err := teststaking.ToTmValidators(valSet, sdk.DefaultPowerReduction)
 	if err != nil {
 		panic(err)
 	}
 	return tmtypes.NewValidatorSet(tmValidators), true
-}
-
-func toCmtValidators(vals stakingtypes.Validators, powerReduction sdk.Int) ([]*tmtypes.Validator, error) {
-	tmVals := make([]*tmtypes.Validator, 0, len(vals))
-	for _, val := range vals {
-		cmtPubKey, err := cryptocodec.ToCmtPubKeyInterface(val.ConsPubKey())
-		if err != nil {
-			return nil, err
-		}
-		tmVals = append(tmVals, tmtypes.NewValidator(cmtPubKey, val.ConsensusPower(powerReduction)))
-	}
-	return tmVals, nil
 }
 
 // GetAcknowledgement retrieves an acknowledgement for the provided packet. If the
@@ -496,6 +486,65 @@ func CreateSortedSignerArray(altPrivVal, suitePrivVal tmtypes.PrivValidator,
 	}
 }
 
+// CreatePortCapability binds and claims a capability for the given portID if it does not
+// already exist. This function will fail testing on any resulting error.
+// NOTE: only creation of a capbility for a transfer or mock port is supported
+// Other applications must bind to the port in InitGenesis or modify this code.
+func (chain *TestChain) CreatePortCapability(scopedKeeper capabilitykeeper.ScopedKeeper, portID string) {
+	// check if the portId is already binded, if not bind it
+	_, ok := chain.App.GetScopedIBCKeeper().GetCapability(chain.GetContext(), host.PortPath(portID))
+	if !ok {
+		// create capability using the IBC capability keeper
+		cap, err := chain.App.GetScopedIBCKeeper().NewCapability(chain.GetContext(), host.PortPath(portID))
+		require.NoError(chain.t, err)
+
+		// claim capability using the scopedKeeper
+		err = scopedKeeper.ClaimCapability(chain.GetContext(), cap, host.PortPath(portID))
+		require.NoError(chain.t, err)
+	}
+
+	chain.App.Commit()
+
+	chain.NextBlock()
+}
+
+// GetPortCapability returns the port capability for the given portID. The capability must
+// exist, otherwise testing will fail.
+func (chain *TestChain) GetPortCapability(portID string) *capabilitytypes.Capability {
+	cap, ok := chain.App.GetScopedIBCKeeper().GetCapability(chain.GetContext(), host.PortPath(portID))
+	require.True(chain.t, ok)
+
+	return cap
+}
+
+// CreateChannelCapability binds and claims a capability for the given portID and channelID
+// if it does not already exist. This function will fail testing on any resulting error. The
+// scoped keeper passed in will claim the new capability.
+func (chain *TestChain) CreateChannelCapability(scopedKeeper capabilitykeeper.ScopedKeeper, portID, channelID string) {
+	capName := host.ChannelCapabilityPath(portID, channelID)
+	// check if the portId is already binded, if not bind it
+	_, ok := chain.App.GetScopedIBCKeeper().GetCapability(chain.GetContext(), capName)
+	if !ok {
+		cap, err := chain.App.GetScopedIBCKeeper().NewCapability(chain.GetContext(), capName)
+		require.NoError(chain.t, err)
+		err = scopedKeeper.ClaimCapability(chain.GetContext(), cap, capName)
+		require.NoError(chain.t, err)
+	}
+
+	chain.App.Commit()
+
+	chain.NextBlock()
+}
+
+// GetChannelCapability returns the channel capability for the given portID and channelID.
+// The capability must exist, otherwise testing will fail.
+func (chain *TestChain) GetChannelCapability(portID, channelID string) *capabilitytypes.Capability {
+	cap, ok := chain.App.GetScopedIBCKeeper().GetCapability(chain.GetContext(), host.ChannelCapabilityPath(portID, channelID))
+	require.True(chain.t, ok)
+
+	return cap
+}
+
 func (chain *TestChain) Balance(acc sdk.AccAddress, denom string) sdk.Coin {
 	return chain.GetTestSupport().BankKeeper().GetBalance(chain.GetContext(), acc, denom)
 }
@@ -529,6 +578,10 @@ func (a TestingAppDecorator) GetStakingKeeper() stakingkeeper.Keeper {
 
 func (a TestingAppDecorator) GetIBCKeeper() *ibckeeper.Keeper {
 	return a.TestSupport().IBCKeeper()
+}
+
+func (a TestingAppDecorator) GetScopedIBCKeeper() capabilitykeeper.ScopedKeeper {
+	return a.TestSupport().ScopeIBCKeeper()
 }
 
 func (a TestingAppDecorator) GetTxConfig() client.TxConfig {

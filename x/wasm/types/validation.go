@@ -1,7 +1,7 @@
 package types
 
 import (
-	"cosmossdk.io/errors"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 const (
@@ -13,20 +13,20 @@ const (
 
 func validateWasmCode(s []byte) error {
 	if len(s) == 0 {
-		return errors.Wrap(ErrEmpty, "is required")
+		return sdkerrors.Wrap(ErrEmpty, "is required")
 	}
 	if len(s) > MaxWasmSize {
-		return errors.Wrapf(ErrLimit, "cannot be longer than %d bytes", MaxWasmSize)
+		return sdkerrors.Wrapf(ErrLimit, "cannot be longer than %d bytes", MaxWasmSize)
 	}
 	return nil
 }
 
 func validateLabel(label string) error {
 	if label == "" {
-		return errors.Wrap(ErrEmpty, "is required")
+		return sdkerrors.Wrap(ErrEmpty, "is required")
 	}
 	if len(label) > MaxLabelSize {
-		return errors.Wrap(ErrLimit, "cannot be longer than 128 characters")
+		return sdkerrors.Wrap(ErrLimit, "cannot be longer than 128 characters")
 	}
 	return nil
 }

@@ -3,12 +3,10 @@ package keeper
 import (
 	"fmt"
 
-	"cosmossdk.io/errors"
-	storetypes "cosmossdk.io/store/types"
-	wasmvmtypes "github.com/CosmWasm/wasmvm/v2/types"
-	abci "github.com/cometbft/cometbft/abci/types"
+	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	abci "github.com/tendermint/tendermint/abci/types"
 
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 )
@@ -50,20 +48,20 @@ func (d MessageDispatcher) DispatchMessages(ctx sdk.Context, contractAddr sdk.Ac
 
 // dispatchMsgWithGasLimit sends a message with gas limit applied
 func (d MessageDispatcher) dispatchMsgWithGasLimit(ctx sdk.Context, contractAddr sdk.AccAddress, ibcPort string, msg wasmvmtypes.CosmosMsg, gasLimit uint64) (events []sdk.Event, data [][]byte, err error) {
-	limitedMeter := storetypes.NewGasMeter(gasLimit)
+	limitedMeter := sdk.NewGasMeter(gasLimit)
 	subCtx := ctx.WithGasMeter(limitedMeter)
 
 	// catch out of gas panic and just charge the entire gas limit
 	defer func() {
 		if r := recover(); r != nil {
 			// if it's not an OutOfGas error, raise it again
-			if _, ok := r.(storetypes.ErrorOutOfGas); !ok {
+			if _, ok := r.(sdk.ErrorOutOfGas); !ok {
 				// log it to get the original stack trace somewhere (as panic(r) keeps message but stacktrace to here
 				moduleLogger(ctx).Info("SubMsg rethrowing panic: %#v", r)
 				panic(r)
 			}
 			ctx.GasMeter().ConsumeGas(gasLimit, "Sub-Message OutOfGas panic")
-			err = errors.Wrap(sdkerrors.ErrOutOfGas, "SubMsg hit gas limit")
+			err = sdkerrors.Wrap(sdkerrors.ErrOutOfGas, "SubMsg hit gas limit")
 		}
 	}()
 	events, data, err = d.messenger.DispatchMsg(subCtx, contractAddr, ibcPort, msg)
@@ -83,7 +81,7 @@ func (d MessageDispatcher) DispatchSubmessages(ctx sdk.Context, contractAddr sdk
 		switch msg.ReplyOn {
 		case wasmvmtypes.ReplySuccess, wasmvmtypes.ReplyError, wasmvmtypes.ReplyAlways, wasmvmtypes.ReplyNever:
 		default:
-			return nil, errors.Wrap(types.ErrInvalid, "replyOn value")
+			return nil, sdkerrors.Wrap(types.ErrInvalid, "replyOn value")
 		}
 		// first, we build a sub-context which we can use inside the submessages
 		subCtx, commit := ctx.CacheContext()
@@ -119,8 +117,8 @@ func (d MessageDispatcher) DispatchSubmessages(ctx sdk.Context, contractAddr sdk
 			continue
 		}
 
-		// otherwise, we create a SubMsgResult and pass it into the calling contract
-		var result wasmvmtypes.SubMsgResult
+		// otherwise, we create a SubcallResult and pass it into the calling contract
+		var result wasmvmtypes.SubcallResult
 		if err == nil {
 			// just take the first one for now if there are multiple sub-sdk messages
 			// and safely return nothing if no data
@@ -128,8 +126,8 @@ func (d MessageDispatcher) DispatchSubmessages(ctx sdk.Context, contractAddr sdk
 			if len(data) > 0 {
 				responseData = data[0]
 			}
-			result = wasmvmtypes.SubMsgResult{
-				Ok: &wasmvmtypes.SubMsgResponse{
+			result = wasmvmtypes.SubcallResult{
+				Ok: &wasmvmtypes.SubcallResponse{
 					Events: sdkEventsToWasmVMEvents(filteredEvents),
 					Data:   responseData,
 				},
@@ -137,7 +135,7 @@ func (d MessageDispatcher) DispatchSubmessages(ctx sdk.Context, contractAddr sdk
 		} else {
 			// Issue #759 - we don't return error string for worries of non-determinism
 			moduleLogger(ctx).Info("Redacting submessage error", "cause", err)
-			result = wasmvmtypes.SubMsgResult{
+			result = wasmvmtypes.SubcallResult{
 				Err: redactError(err).Error(),
 			}
 		}
@@ -153,7 +151,7 @@ func (d MessageDispatcher) DispatchSubmessages(ctx sdk.Context, contractAddr sdk
 		rspData, err := d.keeper.reply(ctx, contractAddr, reply)
 		switch {
 		case err != nil:
-			return nil, errors.Wrap(err, "reply")
+			return nil, sdkerrors.Wrap(err, "reply")
 		case rspData != nil:
 			rsp = rspData
 		}
@@ -174,7 +172,7 @@ func redactError(err error) error {
 	// sdk/11 is out of gas
 	// sdk/5 is insufficient funds (on bank send)
 	// (we can theoretically redact less in the future, but this is a first step to safety)
-	codespace, code, _ := errors.ABCIInfo(err, false)
+	codespace, code, _ := sdkerrors.ABCIInfo(err, false)
 	return fmt.Errorf("codespace: %s, code: %d", codespace, code)
 }
 
