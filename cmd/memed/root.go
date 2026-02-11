@@ -6,12 +6,18 @@ import (
 	"os"
 	"path/filepath"
 
+	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
+	"cosmossdk.io/client/v2/autocli"
+	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/log"
 	"cosmossdk.io/store"
 	"cosmossdk.io/store/snapshots"
 	snapshottypes "cosmossdk.io/store/snapshots/types"
 	storetypes "cosmossdk.io/store/types"
+	"cosmossdk.io/x/evidence"
 	feegrantcli "cosmossdk.io/x/feegrant/client/cli"
+	feegrantmodule "cosmossdk.io/x/feegrant/module"
+	"cosmossdk.io/x/upgrade"
 	upgradecli "cosmossdk.io/x/upgrade/client/cli"
 	cmtcfg "github.com/cometbft/cometbft/config"
 	tmcli "github.com/cometbft/cometbft/libs/cli"
@@ -30,17 +36,33 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/version"
+	"github.com/cosmos/cosmos-sdk/x/auth"
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/cosmos/cosmos-sdk/x/authz"
 	authzcli "github.com/cosmos/cosmos-sdk/x/authz/client/cli"
+	authzmodule "github.com/cosmos/cosmos-sdk/x/authz/module"
+	"github.com/cosmos/cosmos-sdk/x/bank"
 	bankcli "github.com/cosmos/cosmos-sdk/x/bank/client/cli"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
+	distr "github.com/cosmos/cosmos-sdk/x/distribution"
 	distrcli "github.com/cosmos/cosmos-sdk/x/distribution/client/cli"
+	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
+	"github.com/cosmos/cosmos-sdk/x/gov"
 	govcli "github.com/cosmos/cosmos-sdk/x/gov/client/cli"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	"github.com/cosmos/cosmos-sdk/x/mint"
+	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
+	sdkparams "github.com/cosmos/cosmos-sdk/x/params"
+	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
+	"github.com/cosmos/cosmos-sdk/x/slashing"
+	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
+	"github.com/cosmos/cosmos-sdk/x/staking"
 	stakingcli "github.com/cosmos/cosmos-sdk/x/staking/client/cli"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	ibccli "github.com/cosmos/ibc-go/v8/modules/core/client/cli"
 	transfercli "github.com/cosmos/ibc-go/v8/modules/apps/transfer/client/cli"
 	"github.com/prometheus/client_golang/prometheus"
@@ -108,6 +130,15 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 
 	initRootCmd(rootCmd, encodingConfig)
 
+	// Enhance root command with AutoCLI-generated query and tx commands
+	// for modules that use AutoCLI (auth, bank, staking, distribution, gov,
+	// slashing, mint, params, feegrant, authz, evidence, upgrade).
+	// This only adds missing commands and does not override manually registered ones.
+	autoCliOpts := initAutoCliOptions(initClientCtx)
+	if err := autoCliOpts.EnhanceRootCommand(rootCmd); err != nil {
+		panic(err)
+	}
+
 	return rootCmd, encodingConfig
 }
 
@@ -162,6 +193,52 @@ func initAppConfig() (string, interface{}) {
 	// Customize config if needed (for now using defaults)
 
 	return "", srvCfg
+}
+
+// initAutoCliOptions builds AutoCLI AppOptions by extracting AutoCLI module
+// options from zero-value AppModule instances. The AutoCLIOptions() method on
+// each module only returns static proto service descriptors and does not
+// require keepers or state. This enables AutoCLI-generated query/tx commands
+// for all core SDK modules.
+//
+// Core SDK modules are provided via ModuleOptions (not Modules) to avoid
+// panics from GetTxCmd()/GetQueryCmd() on zero-value structs with nil codecs.
+// Wasm is provided via Modules so its custom GetQueryCmd() is detected.
+func initAutoCliOptions(clientCtx client.Context) autocli.AppOptions {
+	cfg := sdk.GetConfig()
+
+	// Extract AutoCLI module options from zero-value AppModule instances.
+	// AutoCLIOptions() only returns static protobuf service descriptors and
+	// is safe to call on zero-value structs.
+	moduleOptions := map[string]*autocliv1.ModuleOptions{
+		authtypes.ModuleName:     auth.AppModule{}.AutoCLIOptions(),
+		banktypes.ModuleName:     bank.AppModule{}.AutoCLIOptions(),
+		stakingtypes.ModuleName:  staking.AppModule{}.AutoCLIOptions(),
+		distrtypes.ModuleName:    distr.AppModule{}.AutoCLIOptions(),
+		govtypes.ModuleName:      gov.AppModule{}.AutoCLIOptions(),
+		slashingtypes.ModuleName: slashing.AppModule{}.AutoCLIOptions(),
+		minttypes.ModuleName:     mint.AppModule{}.AutoCLIOptions(),
+		paramstypes.ModuleName:   sdkparams.AppModule{}.AutoCLIOptions(),
+		"feegrant":               feegrantmodule.AppModule{}.AutoCLIOptions(),
+		authz.ModuleName:         authzmodule.AppModule{}.AutoCLIOptions(),
+		"evidence":               evidence.AppModule{}.AutoCLIOptions(),
+		"upgrade":                upgrade.AppModule{}.AutoCLIOptions(),
+	}
+
+	// Wasm is included via Modules so its custom GetQueryCmd()/GetTxCmd()
+	// are detected by AutoCLI's HasCustomQueryCommand/HasCustomTxCommand.
+	modules := map[string]appmodule.AppModule{
+		"wasm": wasm.AppModule{},
+	}
+
+	return autocli.AppOptions{
+		Modules:               modules,
+		ModuleOptions:         moduleOptions,
+		AddressCodec:          addresscodec.NewBech32Codec(cfg.GetBech32AccountAddrPrefix()),
+		ValidatorAddressCodec: addresscodec.NewBech32Codec(cfg.GetBech32ValidatorAddrPrefix()),
+		ConsensusAddressCodec: addresscodec.NewBech32Codec(cfg.GetBech32ConsensusAddrPrefix()),
+		ClientCtx:             clientCtx,
+	}
 }
 
 func queryCommand(basicManager module.BasicManager) *cobra.Command {
