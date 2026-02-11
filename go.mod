@@ -1,8 +1,8 @@
+module github.com/CosmWasm/wasmd
+
 go 1.23.2
 
 toolchain go1.25.7
-
-module github.com/CosmWasm/wasmd
 
 require (
 	cosmossdk.io/api v0.9.2
