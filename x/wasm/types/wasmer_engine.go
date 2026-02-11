@@ -1,9 +1,8 @@
 package types
 
 import (
-	storetypes "cosmossdk.io/store/types"
-	wasmvm "github.com/CosmWasm/wasmvm/v2"
-	wasmvmtypes "github.com/CosmWasm/wasmvm/v2/types"
+	wasmvm "github.com/CosmWasm/wasmvm"
+	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
 )
 
 // WasmerEngine defines the WASM contract runtime engine.
@@ -150,7 +149,7 @@ type WasmerEngine interface {
 		gasMeter wasmvm.GasMeter,
 		gasLimit uint64,
 		deserCost wasmvmtypes.UFraction,
-	) (*wasmvmtypes.IBC3ChannelOpenResponse, uint64, error)
+	) (uint64, error)
 
 	// IBCChannelConnect is available on IBC-enabled contracts and is a hook to call into
 	// during the handshake pahse
@@ -238,46 +237,3 @@ type WasmerEngine interface {
 	// GetMetrics some internal metrics for monitoring purposes.
 	GetMetrics() (*wasmvmtypes.Metrics, error)
 }
-
-// StoreAdapter bridges SDK KVStore to wasmvm KVStore interface.
-// This is necessary because wasmvm v2 uses its own Iterator interface
-// which differs from the SDK's Iterator interface.
-type StoreAdapter struct {
-	parent storetypes.KVStore
-}
-
-// NewStoreAdapter creates a new StoreAdapter wrapping an SDK KVStore
-func NewStoreAdapter(s storetypes.KVStore) *StoreAdapter {
-	if s == nil {
-		panic("store must not be nil")
-	}
-	return &StoreAdapter{parent: s}
-}
-
-// Get returns the value for the given key, or nil if not found
-func (s StoreAdapter) Get(key []byte) []byte {
-	return s.parent.Get(key)
-}
-
-// Set stores the key-value pair
-func (s StoreAdapter) Set(key, value []byte) {
-	s.parent.Set(key, value)
-}
-
-// Delete removes the key-value pair
-func (s StoreAdapter) Delete(key []byte) {
-	s.parent.Delete(key)
-}
-
-// Iterator returns an iterator over the given range [start, end)
-// The SDK Iterator implements the wasmvm Iterator interface directly
-func (s StoreAdapter) Iterator(start, end []byte) wasmvmtypes.Iterator {
-	return s.parent.Iterator(start, end)
-}
-
-// ReverseIterator returns a reverse iterator over the given range [start, end)
-// The SDK Iterator implements the wasmvm Iterator interface directly
-func (s StoreAdapter) ReverseIterator(start, end []byte) wasmvmtypes.Iterator {
-	return s.parent.ReverseIterator(start, end)
-}
-

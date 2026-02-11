@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"math/rand"
 
-	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -149,7 +148,7 @@ func MsgInstantiateContractFixture(mutators ...func(*MsgInstantiateContract)) *M
 		Msg:    []byte(`{"foo":"bar"}`),
 		Funds: sdk.Coins{{
 			Denom:  "stake",
-			Amount: math.NewInt(1),
+			Amount: sdk.NewInt(1),
 		}},
 	}
 	for _, m := range mutators {
@@ -169,7 +168,7 @@ func MsgExecuteContractFixture(mutators ...func(*MsgExecuteContract)) *MsgExecut
 		Msg:      []byte(`{"do":"something"}`),
 		Funds: sdk.Coins{{
 			Denom:  "stake",
-			Amount: math.NewInt(1),
+			Amount: sdk.NewInt(1),
 		}},
 	}
 	for _, m := range mutators {

@@ -4,8 +4,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
-	"github.com/cosmos/gogoproto/proto"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/msgservice"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 // RegisterLegacyAminoCodec registers the account types and interface
@@ -27,30 +28,31 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) { //nolint:staticcheck
 }
 
 func RegisterInterfaces(registry types.InterfaceRegistry) {
+	registry.RegisterImplementations(
+		(*sdk.Msg)(nil),
+		&MsgStoreCode{},
+		&MsgInstantiateContract{},
+		&MsgExecuteContract{},
+		&MsgMigrateContract{},
+		&MsgUpdateAdmin{},
+		&MsgClearAdmin{},
+		&MsgIBCCloseChannel{},
+		&MsgIBCSend{},
+	)
+	registry.RegisterImplementations(
+		(*govtypes.Content)(nil),
+		&StoreCodeProposal{},
+		&InstantiateContractProposal{},
+		&MigrateContractProposal{},
+		&UpdateAdminProposal{},
+		&ClearAdminProposal{},
+		&PinCodesProposal{},
+		&UnpinCodesProposal{},
+	)
+
 	registry.RegisterInterface("ContractInfoExtension", (*ContractInfoExtension)(nil))
 
-	// SDK 0.50: Register message implementations with explicit type URLs
-	// Use a type assertion to access the concrete registry's RegisterCustomTypeURL method
-	// This is needed because gogoproto-generated messages don't properly populate proto.MessageName()
-	type customRegistry interface {
-		RegisterCustomTypeURL(iface interface{}, typeURL string, impl proto.Message)
-	}
-	
-	cr, ok := registry.(customRegistry)
-	if !ok {
-		// Type assertion failed - fall back to panic-inducing behavior
-		// to help debug the issue
-		panic("InterfaceRegistry does not implement RegisterCustomTypeURL - cannot register wasm messages")
-	}
-	
-	cr.RegisterCustomTypeURL((*sdk.Msg)(nil), "/cosmwasm.wasm.v1.MsgStoreCode", &MsgStoreCode{})
-	cr.RegisterCustomTypeURL((*sdk.Msg)(nil), "/cosmwasm.wasm.v1.MsgInstantiateContract", &MsgInstantiateContract{})
-	cr.RegisterCustomTypeURL((*sdk.Msg)(nil), "/cosmwasm.wasm.v1.MsgExecuteContract", &MsgExecuteContract{})
-	cr.RegisterCustomTypeURL((*sdk.Msg)(nil), "/cosmwasm.wasm.v1.MsgMigrateContract", &MsgMigrateContract{})
-	cr.RegisterCustomTypeURL((*sdk.Msg)(nil), "/cosmwasm.wasm.v1.MsgUpdateAdmin", &MsgUpdateAdmin{})
-	cr.RegisterCustomTypeURL((*sdk.Msg)(nil), "/cosmwasm.wasm.v1.MsgClearAdmin", &MsgClearAdmin{})
-	cr.RegisterCustomTypeURL((*sdk.Msg)(nil), "/cosmwasm.wasm.v1.MsgIBCCloseChannel", &MsgIBCCloseChannel{})
-	cr.RegisterCustomTypeURL((*sdk.Msg)(nil), "/cosmwasm.wasm.v1.MsgIBCSend", &MsgIBCSend{})
+	msgservice.RegisterMsgServiceDesc(registry, &_Msg_serviceDesc)
 }
 
 var (

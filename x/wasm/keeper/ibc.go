@@ -1,12 +1,12 @@
 package keeper
 
 import (
-	stderrors "errors"
 	"strings"
 
-	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	porttypes "github.com/cosmos/ibc-go/v8/modules/core/05-port/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
+	host "github.com/cosmos/ibc-go/v2/modules/core/24-host"
 
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 )
@@ -15,7 +15,8 @@ import (
 // returns a string name of the port or error if we cannot bind it.
 // this will fail if call twice.
 func (k Keeper) bindIbcPort(ctx sdk.Context, portID string) error {
-	return k.portKeeper.BindPort(ctx, portID)
+	cap := k.portKeeper.BindPort(ctx, portID)
+	return k.ClaimCapability(ctx, cap, host.PortPath(portID))
 }
 
 // ensureIbcPort is like registerIbcPort, but it checks if we already hold the port
@@ -24,13 +25,10 @@ func (k Keeper) bindIbcPort(ctx sdk.Context, portID string) error {
 // (lack of permissions or someone else has it)
 func (k Keeper) ensureIbcPort(ctx sdk.Context, contractAddr sdk.AccAddress) (string, error) {
 	portID := PortIDForContract(contractAddr)
-	if err := k.bindIbcPort(ctx, portID); err != nil {
-		if stderrors.Is(err, porttypes.ErrPortExists) {
-			return portID, nil
-		}
-		return portID, err
+	if _, ok := k.capabilityKeeper.GetCapability(ctx, host.PortPath(portID)); ok {
+		return portID, nil
 	}
-	return portID, nil
+	return portID, k.bindIbcPort(ctx, portID)
 }
 
 const portIDPrefix = "wasm."
@@ -41,9 +39,18 @@ func PortIDForContract(addr sdk.AccAddress) string {
 
 func ContractFromPortID(portID string) (sdk.AccAddress, error) {
 	if !strings.HasPrefix(portID, portIDPrefix) {
-		return nil, errors.Wrapf(types.ErrInvalid, "without prefix")
+		return nil, sdkerrors.Wrapf(types.ErrInvalid, "without prefix")
 	}
 	return sdk.AccAddressFromBech32(portID[len(portIDPrefix):])
 }
 
-// Capability-based IBC methods were removed in IBC v10.
+// AuthenticateCapability wraps the scopedKeeper's AuthenticateCapability function
+func (k Keeper) AuthenticateCapability(ctx sdk.Context, cap *capabilitytypes.Capability, name string) bool {
+	return k.capabilityKeeper.AuthenticateCapability(ctx, cap, name)
+}
+
+// ClaimCapability allows the transfer module to claim a capability
+// that IBC module passes to it
+func (k Keeper) ClaimCapability(ctx sdk.Context, cap *capabilitytypes.Capability, name string) error {
+	return k.capabilityKeeper.ClaimCapability(ctx, cap, name)
+}

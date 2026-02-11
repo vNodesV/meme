@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	wasmvm "github.com/CosmWasm/wasmvm/v2"
+	wasmvm "github.com/CosmWasm/wasmvm"
 
 	"github.com/CosmWasm/wasmd/x/wasm/keeper/wasmtesting"
 

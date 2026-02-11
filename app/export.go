@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 
+	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
@@ -17,7 +19,7 @@ func (app *WasmApp) ExportAppStateAndValidators(
 	forZeroHeight bool, jailAllowedAddrs []string,
 ) (servertypes.ExportedApp, error) {
 	// as if they could withdraw from the start of the next block
-	ctx := app.NewContext(true)
+	ctx := app.NewContext(true, tmproto.Header{Height: app.LastBlockHeight()})
 
 	// We export at last height + 1, because that's the height at which
 	// Tendermint will start InitChain.
@@ -27,16 +29,13 @@ func (app *WasmApp) ExportAppStateAndValidators(
 		app.prepForZeroHeightGenesis(ctx, jailAllowedAddrs)
 	}
 
-	genState, err := app.mm.ExportGenesis(ctx, app.appCodec)
-	if err != nil {
-		return servertypes.ExportedApp{}, err
-	}
+	genState := app.mm.ExportGenesis(ctx, app.appCodec)
 	appState, err := json.MarshalIndent(genState, "", "  ")
 	if err != nil {
 		return servertypes.ExportedApp{}, err
 	}
 
-	validators, err := staking.WriteValidators(ctx, &app.stakingKeeper)
+	validators, err := staking.WriteValidators(ctx, app.stakingKeeper)
 	return servertypes.ExportedApp{
 		AppState:        appState,
 		Validators:      validators,
@@ -47,8 +46,7 @@ func (app *WasmApp) ExportAppStateAndValidators(
 
 // prepare for fresh start at zero height
 // NOTE zero height genesis is a temporary feature which will be deprecated
-//
-//	in favour of export at a block height
+//      in favour of export at a block height
 func (app *WasmApp) prepForZeroHeightGenesis(ctx sdk.Context, jailAllowedAddrs []string) {
 	applyAllowedAddrs := false
 
@@ -74,19 +72,12 @@ func (app *WasmApp) prepForZeroHeightGenesis(ctx sdk.Context, jailAllowedAddrs [
 
 	// withdraw all validator commission
 	app.stakingKeeper.IterateValidators(ctx, func(_ int64, val stakingtypes.ValidatorI) (stop bool) {
-		valAddr, err := sdk.ValAddressFromBech32(val.GetOperator())
-		if err != nil {
-			panic(err)
-		}
-		_, _ = app.distrKeeper.WithdrawValidatorCommission(ctx, valAddr) //nolint:errcheck
+		_, _ = app.distrKeeper.WithdrawValidatorCommission(ctx, val.GetOperator()) //nolint:errcheck
 		return false
 	})
 
 	// withdraw all delegator rewards
-	dels, err := app.stakingKeeper.GetAllDelegations(ctx)
-	if err != nil {
-		panic(err)
-	}
+	dels := app.stakingKeeper.GetAllDelegations(ctx)
 	for _, delegation := range dels {
 		valAddr, err := sdk.ValAddressFromBech32(delegation.ValidatorAddress)
 		if err != nil {
@@ -112,28 +103,13 @@ func (app *WasmApp) prepForZeroHeightGenesis(ctx sdk.Context, jailAllowedAddrs [
 
 	// reinitialize all validators
 	app.stakingKeeper.IterateValidators(ctx, func(_ int64, val stakingtypes.ValidatorI) (stop bool) {
-		valAddr, err := sdk.ValAddressFromBech32(val.GetOperator())
-		if err != nil {
-			panic(err)
-		}
-		
 		// donate any unwithdrawn outstanding reward fraction tokens to the community pool
-		scraps, err := app.distrKeeper.GetValidatorOutstandingRewardsCoins(ctx, valAddr)
-		if err != nil {
-			panic(err)
-		}
-		feePool, err := app.distrKeeper.FeePool.Get(ctx)
-		if err != nil {
-			panic(err)
-		}
+		scraps := app.distrKeeper.GetValidatorOutstandingRewardsCoins(ctx, val.GetOperator())
+		feePool := app.distrKeeper.GetFeePool(ctx)
 		feePool.CommunityPool = feePool.CommunityPool.Add(scraps...)
-		if err := app.distrKeeper.FeePool.Set(ctx, feePool); err != nil {
-			panic(err)
-		}
+		app.distrKeeper.SetFeePool(ctx, feePool)
 
-		if err := app.distrKeeper.Hooks().AfterValidatorCreated(ctx, valAddr); err != nil {
-			panic(err)
-		}
+		app.distrKeeper.Hooks().AfterValidatorCreated(ctx, val.GetOperator())
 		return false
 	})
 
@@ -176,18 +152,14 @@ func (app *WasmApp) prepForZeroHeightGenesis(ctx sdk.Context, jailAllowedAddrs [
 
 	// Iterate through validators by power descending, reset bond heights, and
 	// update bond intra-tx counters.
-	iter, err := app.stakingKeeper.ValidatorsPowerStoreIterator(ctx)
-	if err != nil {
-		panic(err)
-	}
-	defer iter.Close()
-	
+	store := ctx.KVStore(app.keys[stakingtypes.StoreKey])
+	iter := sdk.KVStoreReversePrefixIterator(store, stakingtypes.ValidatorsKey)
 	counter := int16(0)
 
 	for ; iter.Valid(); iter.Next() {
-		addr := sdk.ValAddress(stakingtypes.ParseValidatorPowerRankKey(iter.Key()))
-		validator, err := app.stakingKeeper.GetValidator(ctx, addr)
-		if err != nil {
+		addr := sdk.ValAddress(iter.Key()[1:])
+		validator, found := app.stakingKeeper.GetValidator(ctx, addr)
+		if !found {
 			panic("expected validator, not found")
 		}
 
@@ -196,13 +168,14 @@ func (app *WasmApp) prepForZeroHeightGenesis(ctx sdk.Context, jailAllowedAddrs [
 			validator.Jailed = true
 		}
 
-		if err := app.stakingKeeper.SetValidator(ctx, validator); err != nil {
-			panic(err)
-		}
+		app.stakingKeeper.SetValidator(ctx, validator)
 		counter++
 	}
 
-	if _, err = app.stakingKeeper.ApplyAndReturnValidatorSetUpdates(ctx); err != nil {
+	iter.Close()
+
+	_, err := app.stakingKeeper.ApplyAndReturnValidatorSetUpdates(ctx)
+	if err != nil {
 		log.Fatal(err)
 	}
 

@@ -7,10 +7,11 @@ import (
 	bytes "bytes"
 	context "context"
 	fmt "fmt"
-	github_com_tendermint_tendermint_libs_bytes "github.com/cometbft/cometbft/libs/bytes"
 	query "github.com/cosmos/cosmos-sdk/types/query"
-	_ "github.com/cosmos/gogoproto/gogoproto"
-	proto "github.com/cosmos/gogoproto/proto"
+	_ "github.com/gogo/protobuf/gogoproto"
+	grpc1 "github.com/gogo/protobuf/grpc"
+	proto "github.com/gogo/protobuf/proto"
+	github_com_tendermint_tendermint_libs_bytes "github.com/tendermint/tendermint/libs/bytes"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -566,7 +567,7 @@ var xxx_messageInfo_QueryCodeRequest proto.InternalMessageInfo
 type CodeInfoResponse struct {
 	CodeID   uint64                                               `protobuf:"varint,1,opt,name=code_id,json=codeId,proto3" json:"id"`
 	Creator  string                                               `protobuf:"bytes,2,opt,name=creator,proto3" json:"creator,omitempty"`
-	DataHash github_com_tendermint_tendermint_libs_bytes.HexBytes `protobuf:"bytes,3,opt,name=data_hash,json=dataHash,proto3,casttype=github.com/cometbft/cometbft/libs/bytes.HexBytes" json:"data_hash,omitempty"`
+	DataHash github_com_tendermint_tendermint_libs_bytes.HexBytes `protobuf:"bytes,3,opt,name=data_hash,json=dataHash,proto3,casttype=github.com/tendermint/tendermint/libs/bytes.HexBytes" json:"data_hash,omitempty"`
 }
 
 func (m *CodeInfoResponse) Reset()         { *m = CodeInfoResponse{} }
@@ -1019,10 +1020,10 @@ type QueryClient interface {
 }
 
 type queryClient struct {
-	cc grpc.ClientConnInterface
+	cc grpc1.ClientConn
 }
 
-func NewQueryClient(cc grpc.ClientConnInterface) QueryClient {
+func NewQueryClient(cc grpc1.ClientConn) QueryClient {
 	return &queryClient{cc}
 }
 
@@ -1161,7 +1162,7 @@ func (*UnimplementedQueryServer) PinnedCodes(ctx context.Context, req *QueryPinn
 	return nil, status.Errorf(codes.Unimplemented, "method PinnedCodes not implemented")
 }
 
-func RegisterQueryServer(s grpc.ServiceRegistrar, srv QueryServer) {
+func RegisterQueryServer(s grpc1.Server, srv QueryServer) {
 	s.RegisterService(&_Query_serviceDesc, srv)
 }
 

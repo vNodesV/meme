@@ -3,42 +3,27 @@ package app
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"cosmossdk.io/log"
-	storetypes "cosmossdk.io/store/types"
-	"cosmossdk.io/x/evidence"
-	evidencekeeper "cosmossdk.io/x/evidence/keeper"
-	evidencetypes "cosmossdk.io/x/evidence/types"
-	"cosmossdk.io/x/feegrant"
-	feegrantkeeper "cosmossdk.io/x/feegrant/keeper"
-	feegrantmodule "cosmossdk.io/x/feegrant/module"
-	"cosmossdk.io/x/upgrade"
-	upgradekeeper "cosmossdk.io/x/upgrade/keeper"
-	upgradetypes "cosmossdk.io/x/upgrade/types"
-	dbm "github.com/cosmos/cosmos-db"
-	abci "github.com/cometbft/cometbft/abci/types"
-	tmjson "github.com/cometbft/cometbft/libs/json"
-	tmos "github.com/cometbft/cometbft/libs/os"
-	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
-	nodeservice "github.com/cosmos/cosmos-sdk/client/grpc/node"
+	"github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
+	"github.com/cosmos/cosmos-sdk/client/rpc"
 	"github.com/cosmos/cosmos-sdk/codec"
-	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/cosmos/cosmos-sdk/codec/types"
-	"github.com/cosmos/cosmos-sdk/runtime"
 	"github.com/cosmos/cosmos-sdk/server/api"
 	"github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
+	"github.com/cosmos/cosmos-sdk/simapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/version"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
+	authrest "github.com/cosmos/cosmos-sdk/x/auth/client/rest"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	authsims "github.com/cosmos/cosmos-sdk/x/auth/simulation"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
@@ -51,21 +36,27 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/cosmos-sdk/x/consensus"
-	consensuskeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
+	"github.com/cosmos/cosmos-sdk/x/capability"
+	capabilitykeeper "github.com/cosmos/cosmos-sdk/x/capability/keeper"
+	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
 	crisiskeeper "github.com/cosmos/cosmos-sdk/x/crisis/keeper"
 	crisistypes "github.com/cosmos/cosmos-sdk/x/crisis/types"
 	distr "github.com/cosmos/cosmos-sdk/x/distribution"
+	distrclient "github.com/cosmos/cosmos-sdk/x/distribution/client"
 	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	"github.com/cosmos/cosmos-sdk/x/evidence"
+	evidencekeeper "github.com/cosmos/cosmos-sdk/x/evidence/keeper"
+	evidencetypes "github.com/cosmos/cosmos-sdk/x/evidence/types"
+	"github.com/cosmos/cosmos-sdk/x/feegrant"
+	feegrantkeeper "github.com/cosmos/cosmos-sdk/x/feegrant/keeper"
+	feegrantmodule "github.com/cosmos/cosmos-sdk/x/feegrant/module"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/cosmos/cosmos-sdk/x/gov"
-	govclient "github.com/cosmos/cosmos-sdk/x/gov/client"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	govv1beta1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
 	"github.com/cosmos/cosmos-sdk/x/mint"
 	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
@@ -73,36 +64,53 @@ import (
 	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
 	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
 	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
+	paramproposal "github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	capabilitykeeper "github.com/cosmos/ibc-go/modules/capability/keeper"
-	capabilitytypes "github.com/cosmos/ibc-go/modules/capability/types"
-	transfer "github.com/cosmos/ibc-go/v8/modules/apps/transfer"
-	ibctransferkeeper "github.com/cosmos/ibc-go/v8/modules/apps/transfer/keeper"
-	ibctransfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	ibc "github.com/cosmos/ibc-go/v8/modules/core"
-	porttypes "github.com/cosmos/ibc-go/v8/modules/core/05-port/types"
-	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
+	"github.com/cosmos/cosmos-sdk/x/upgrade"
+	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
+	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
+	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
+	transfer "github.com/cosmos/ibc-go/v2/modules/apps/transfer"
+	ibctransferkeeper "github.com/cosmos/ibc-go/v2/modules/apps/transfer/keeper"
+	ibctransfertypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
+	ibc "github.com/cosmos/ibc-go/v2/modules/core"
+	ibcclient "github.com/cosmos/ibc-go/v2/modules/core/02-client"
+	ibcclientclient "github.com/cosmos/ibc-go/v2/modules/core/02-client/client"
+	ibcclienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	porttypes "github.com/cosmos/ibc-go/v2/modules/core/05-port/types"
+	ibchost "github.com/cosmos/ibc-go/v2/modules/core/24-host"
+	ibckeeper "github.com/cosmos/ibc-go/v2/modules/core/keeper"
+	"github.com/gorilla/mux"
+	"github.com/rakyll/statik/fs"
 	"github.com/spf13/cast"
+	abci "github.com/tendermint/tendermint/abci/types"
+	tmjson "github.com/tendermint/tendermint/libs/json"
+	"github.com/tendermint/tendermint/libs/log"
+	tmos "github.com/tendermint/tendermint/libs/os"
+	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+	dbm "github.com/tendermint/tm-db"
 
 	wasmappparams "github.com/CosmWasm/wasmd/app/params"
 	"github.com/CosmWasm/wasmd/x/wasm"
+	wasmclient "github.com/CosmWasm/wasmd/x/wasm/client"
+
+	// unnamed import of statik for swagger UI support
+	_ "github.com/cosmos/cosmos-sdk/client/docs/statik"
 )
+
 
 // MEME APP Start ... You like it!
 
-const (
-	appName     = "MeMeApp"
-	IBCStoreKey = "ibc" // IBC core store key for SDK 0.50
-)
+const appName = "MeMeApp"
 
 // We pull these out so we can set them with LDFLAGS in the Makefile
 var (
-	MeMeNodeDir  = ".memed"
+	MeMeNodeDir      = ".memed"
 	Bech32Prefix = "meme"
 
 	// If EnabledSpecificProposals is "", and this is "true", then enable all x/wasm proposals.
@@ -153,6 +161,41 @@ var (
 )
 
 var (
+	// ModuleBasics defines the module BasicManager is in charge of setting up basic,
+	// non-dependant module elements, such as codec registration
+	// and genesis verification.
+	ModuleBasics = module.NewBasicManager(
+		auth.AppModuleBasic{},
+		genutil.AppModuleBasic{},
+		bank.AppModuleBasic{},
+		capability.AppModuleBasic{},
+		staking.AppModuleBasic{},
+		mint.AppModuleBasic{},
+		distr.AppModuleBasic{},
+		gov.NewAppModuleBasic(
+			append(
+				wasmclient.ProposalHandlers,
+				paramsclient.ProposalHandler,
+				distrclient.ProposalHandler,
+				upgradeclient.ProposalHandler,
+				upgradeclient.CancelProposalHandler,
+				ibcclientclient.UpdateClientProposalHandler,
+				ibcclientclient.UpgradeProposalHandler,
+			)...,
+		),
+		params.AppModuleBasic{},
+		crisis.AppModuleBasic{},
+		slashing.AppModuleBasic{},
+		feegrantmodule.AppModuleBasic{},
+		authzmodule.AppModuleBasic{},
+		ibc.AppModuleBasic{},
+		upgrade.AppModuleBasic{},
+		evidence.AppModuleBasic{},
+		transfer.AppModuleBasic{},
+		vesting.AppModuleBasic{},
+		wasm.AppModuleBasic{},
+	)
+
 	// module account permissions
 	maccPerms = map[string][]string{
 		authtypes.FeeCollectorName:     nil,
@@ -167,6 +210,7 @@ var (
 )
 
 var (
+	_ simapp.App              = (*WasmApp)(nil)
 	_ servertypes.Application = (*WasmApp)(nil)
 )
 
@@ -180,38 +224,35 @@ type WasmApp struct {
 	invCheckPeriod uint
 
 	// keys to access the substores
-	keys    map[string]*storetypes.KVStoreKey
-	tkeys   map[string]*storetypes.TransientStoreKey
-	memKeys map[string]*storetypes.MemoryStoreKey
+	keys    map[string]*sdk.KVStoreKey
+	tkeys   map[string]*sdk.TransientStoreKey
+	memKeys map[string]*sdk.MemoryStoreKey
 
 	// keepers
-	accountKeeper      authkeeper.AccountKeeper
-	bankKeeper         bankkeeper.Keeper
-	capabilityKeeper   *capabilitykeeper.Keeper
-	stakingKeeper      stakingkeeper.Keeper
-	slashingKeeper     slashingkeeper.Keeper
-	mintKeeper         mintkeeper.Keeper
-	distrKeeper        distrkeeper.Keeper
-	govKeeper          govkeeper.Keeper
-	crisisKeeper       crisiskeeper.Keeper
-	upgradeKeeper      upgradekeeper.Keeper
-	paramsKeeper       paramskeeper.Keeper
-	consensusKeeper    consensuskeeper.Keeper
-	ibcKeeper          *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
-	evidenceKeeper     evidencekeeper.Keeper
-	transferKeeper     ibctransferkeeper.Keeper
-	FeeGrantKeeper     feegrantkeeper.Keeper
-	AuthzKeeper        authzkeeper.Keeper
-	wasmKeeper         wasm.Keeper
-	scopedIBCKeeper    capabilitykeeper.ScopedKeeper
+	accountKeeper    authkeeper.AccountKeeper
+	bankKeeper       bankkeeper.Keeper
+	capabilityKeeper *capabilitykeeper.Keeper
+	stakingKeeper    stakingkeeper.Keeper
+	slashingKeeper   slashingkeeper.Keeper
+	mintKeeper       mintkeeper.Keeper
+	distrKeeper      distrkeeper.Keeper
+	govKeeper        govkeeper.Keeper
+	crisisKeeper     crisiskeeper.Keeper
+	upgradeKeeper    upgradekeeper.Keeper
+	paramsKeeper     paramskeeper.Keeper
+	ibcKeeper        *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
+	evidenceKeeper   evidencekeeper.Keeper
+	transferKeeper   ibctransferkeeper.Keeper
+	FeeGrantKeeper   feegrantkeeper.Keeper
+	AuthzKeeper      authzkeeper.Keeper
+	wasmKeeper       wasm.Keeper
+
+	scopedIBCKeeper      capabilitykeeper.ScopedKeeper
 	scopedTransferKeeper capabilitykeeper.ScopedKeeper
-	scopedWasmKeeper   capabilitykeeper.ScopedKeeper
+	scopedWasmKeeper     capabilitykeeper.ScopedKeeper
 
 	// the module manager
 	mm *module.Manager
-	
-	// basic module manager for providing to CLI and genesis
-	basicManager module.BasicManager
 
 	// simulation manager
 	sm *module.SimulationManager
@@ -244,17 +285,15 @@ func NewWasmApp(
 	bApp.SetVersion(version.Version)
 	bApp.SetInterfaceRegistry(interfaceRegistry)
 
-	keys := storetypes.NewKVStoreKeys(
+	keys := sdk.NewKVStoreKeys(
 		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
 		minttypes.StoreKey, distrtypes.StoreKey, slashingtypes.StoreKey,
-		govtypes.StoreKey, paramstypes.StoreKey, upgradetypes.StoreKey,
-		evidencetypes.StoreKey, ibctransfertypes.StoreKey,
+		govtypes.StoreKey, paramstypes.StoreKey, ibchost.StoreKey, upgradetypes.StoreKey,
+		evidencetypes.StoreKey, ibctransfertypes.StoreKey, capabilitytypes.StoreKey,
 		feegrant.StoreKey, authzkeeper.StoreKey, wasm.StoreKey,
-		IBCStoreKey, consensuskeeper.StoreKey, capabilitytypes.StoreKey,
-		crisistypes.StoreKey,
 	)
-	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey)
-	memKeys := storetypes.NewMemoryStoreKeys(capabilitytypes.MemStoreKey)
+	tkeys := sdk.NewTransientStoreKeys(paramstypes.TStoreKey)
+	memKeys := sdk.NewMemoryStoreKeys(capabilitytypes.MemStoreKey)
 
 	app := &WasmApp{
 		BaseApp:           bApp,
@@ -267,7 +306,6 @@ func NewWasmApp(
 		memKeys:           memKeys,
 	}
 
-	// Keep params keeper for legacy support (still needed for some modules)
 	app.paramsKeeper = initParamsKeeper(
 		appCodec,
 		legacyAmino,
@@ -275,172 +313,138 @@ func NewWasmApp(
 		tkeys[paramstypes.TStoreKey],
 	)
 
-	// Create authority address for modules
-	authority := authtypes.NewModuleAddress(govtypes.ModuleName).String()
+	// set the BaseApp's parameter store
+	bApp.SetParamStore(app.paramsKeeper.Subspace(baseapp.Paramspace).WithKeyTable(paramskeeper.ConsensusParamsKeyTable()))
 
-	// Create address codecs
-	addressCodec := addresscodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
-	validatorAddressCodec := addresscodec.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix())
-	consensusAddressCodec := addresscodec.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix())
-
-	// Initialize capability keeper - must be initialized first as scoped keepers are created during initialization
+	// add capability keeper and ScopeToModule for ibc module
 	app.capabilityKeeper = capabilitykeeper.NewKeeper(
 		appCodec,
 		keys[capabilitytypes.StoreKey],
 		memKeys[capabilitytypes.MemStoreKey],
 	)
-
-	// Initialize scoped keepers before initializing other keepers
-	app.scopedIBCKeeper = app.capabilityKeeper.ScopeToModule(IBCStoreKey)
-	app.scopedTransferKeeper = app.capabilityKeeper.ScopeToModule(ibctransfertypes.ModuleName)
-	app.scopedWasmKeeper = app.capabilityKeeper.ScopeToModule(wasm.ModuleName)
-
-	// Seal the capability keeper to prevent further scoped keepers from being created
+	scopedIBCKeeper := app.capabilityKeeper.ScopeToModule(ibchost.ModuleName)
+	scopedTransferKeeper := app.capabilityKeeper.ScopeToModule(ibctransfertypes.ModuleName)
+	scopedWasmKeeper := app.capabilityKeeper.ScopeToModule(wasm.ModuleName)
 	app.capabilityKeeper.Seal()
-
-	// Initialize consensus keeper to replace deprecated SetParamStore
-	app.consensusKeeper = consensuskeeper.NewKeeper(
-		appCodec,
-		runtime.NewKVStoreService(keys[consensuskeeper.StoreKey]),
-		authority,
-		runtime.ProvideEventService(),
-	)
-	// Set consensus params keeper for BaseApp
-	bApp.SetParamStore(app.consensusKeeper.ParamsStore)
 
 	// add keepers
 	app.accountKeeper = authkeeper.NewAccountKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[authtypes.StoreKey]),
+		keys[authtypes.StoreKey],
+		app.getSubspace(authtypes.ModuleName),
 		authtypes.ProtoBaseAccount,
 		maccPerms,
-		addressCodec,
-		sdk.GetConfig().GetBech32AccountAddrPrefix(),
-		authority,
 	)
 	app.bankKeeper = bankkeeper.NewBaseKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[banktypes.StoreKey]),
+		keys[banktypes.StoreKey],
 		app.accountKeeper,
+		app.getSubspace(banktypes.ModuleName),
 		app.ModuleAccountAddrs(),
-		authority,
-		logger,
 	)
 	app.AuthzKeeper = authzkeeper.NewKeeper(
-		runtime.NewKVStoreService(keys[authzkeeper.StoreKey]),
+		keys[authzkeeper.StoreKey],
 		appCodec,
 		app.BaseApp.MsgServiceRouter(),
-		app.accountKeeper,
 	)
 	app.FeeGrantKeeper = feegrantkeeper.NewKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[feegrant.StoreKey]),
+		keys[feegrant.StoreKey],
 		app.accountKeeper,
 	)
 	stakingKeeper := stakingkeeper.NewKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[stakingtypes.StoreKey]),
+		keys[stakingtypes.StoreKey],
 		app.accountKeeper,
 		app.bankKeeper,
-		authority,
-		validatorAddressCodec,
-		consensusAddressCodec,
+		app.getSubspace(stakingtypes.ModuleName),
 	)
 	app.mintKeeper = mintkeeper.NewKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[minttypes.StoreKey]),
-		stakingKeeper,
+		keys[minttypes.StoreKey],
+		app.getSubspace(minttypes.ModuleName),
+		&stakingKeeper,
 		app.accountKeeper,
 		app.bankKeeper,
 		authtypes.FeeCollectorName,
-		authority,
 	)
 	app.distrKeeper = distrkeeper.NewKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[distrtypes.StoreKey]),
+		keys[distrtypes.StoreKey],
+		app.getSubspace(distrtypes.ModuleName),
 		app.accountKeeper,
 		app.bankKeeper,
-		stakingKeeper,
+		&stakingKeeper,
 		authtypes.FeeCollectorName,
-		authority,
+		app.ModuleAccountAddrs(),
 	)
 	app.slashingKeeper = slashingkeeper.NewKeeper(
 		appCodec,
-		legacyAmino,
-		runtime.NewKVStoreService(keys[slashingtypes.StoreKey]),
-		stakingKeeper,
-		authority,
+		keys[slashingtypes.StoreKey],
+		&stakingKeeper,
+		app.getSubspace(slashingtypes.ModuleName),
 	)
-	app.crisisKeeper = *crisiskeeper.NewKeeper(
-		appCodec,
-		runtime.NewKVStoreService(keys[crisistypes.StoreKey]),
+	app.crisisKeeper = crisiskeeper.NewKeeper(
+		app.getSubspace(crisistypes.ModuleName),
 		invCheckPeriod,
 		app.bankKeeper,
 		authtypes.FeeCollectorName,
-		authority,
-		addressCodec,
 	)
-	app.upgradeKeeper = *upgradekeeper.NewKeeper(
+	app.upgradeKeeper = upgradekeeper.NewKeeper(
 		skipUpgradeHeights,
-		runtime.NewKVStoreService(keys[upgradetypes.StoreKey]),
+		keys[upgradetypes.StoreKey],
 		appCodec,
 		homePath,
 		app.BaseApp,
-		authority,
 	)
 
 	// register the staking hooks
 	// NOTE: stakingKeeper above is passed by reference, so that it will contain these hooks
-	stakingKeeper.SetHooks(
+	app.stakingKeeper = *stakingKeeper.SetHooks(
 		stakingtypes.NewMultiStakingHooks(app.distrKeeper.Hooks(), app.slashingKeeper.Hooks()),
 	)
-	app.stakingKeeper = *stakingKeeper
 
 	app.ibcKeeper = ibckeeper.NewKeeper(
 		appCodec,
-		keys[IBCStoreKey],
-		app.getSubspace(IBCStoreKey),
+		keys[ibchost.StoreKey],
+		app.getSubspace(ibchost.ModuleName),
 		app.stakingKeeper,
 		app.upgradeKeeper,
-		app.scopedIBCKeeper,
-		authority,
+		scopedIBCKeeper,
 	)
 
-	// register the proposal types (legacy gov v1beta1 router - will be migrated to gov v1)
-	govRouter := govv1beta1.NewRouter()
+	// register the proposal types
+	govRouter := govtypes.NewRouter()
 	govRouter.
-		AddRoute(govtypes.RouterKey, govv1beta1.ProposalHandler)
-		// Note: Legacy param change and upgrade handlers are deprecated in SDK 0.50+
-		// They should be replaced with gov v1 proposals
+		AddRoute(govtypes.RouterKey, govtypes.ProposalHandler).
+		AddRoute(paramproposal.RouterKey, params.NewParamChangeProposalHandler(app.paramsKeeper)).
+		AddRoute(distrtypes.RouterKey, distr.NewCommunityPoolSpendProposalHandler(app.distrKeeper)).
+		AddRoute(upgradetypes.RouterKey, upgrade.NewSoftwareUpgradeProposalHandler(app.upgradeKeeper)).
+		AddRoute(ibcclienttypes.RouterKey, ibcclient.NewClientProposalHandler(app.ibcKeeper.ClientKeeper))
 
 	// Create Transfer Keepers
 	app.transferKeeper = ibctransferkeeper.NewKeeper(
 		appCodec,
 		keys[ibctransfertypes.StoreKey],
 		app.getSubspace(ibctransfertypes.ModuleName),
-		app.ibcKeeper.ChannelKeeper, // ICS4 wrapper
 		app.ibcKeeper.ChannelKeeper,
-		app.ibcKeeper.PortKeeper,
+		&app.ibcKeeper.PortKeeper,
 		app.accountKeeper,
 		app.bankKeeper,
-		app.scopedTransferKeeper,
-		authority,
+		scopedTransferKeeper,
 	)
 	transferModule := transfer.NewAppModule(app.transferKeeper)
-	transferIBCModule := transfer.NewIBCModule(app.transferKeeper)
 
 	// create static IBC router, add transfer route, then set and seal it
 	ibcRouter := porttypes.NewRouter()
-	ibcRouter.AddRoute(ibctransfertypes.ModuleName, transferIBCModule)
+	ibcRouter.AddRoute(ibctransfertypes.ModuleName, transferModule)
 
 	// create evidence keeper with router
 	evidenceKeeper := evidencekeeper.NewKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[evidencetypes.StoreKey]),
+		keys[evidencetypes.StoreKey],
 		&app.stakingKeeper,
 		app.slashingKeeper,
-		addressCodec,
-		runtime.ProvideCometInfoService(),
 	)
 	app.evidenceKeeper = *evidenceKeeper
 
@@ -453,27 +457,18 @@ func NewWasmApp(
 	// The last arguments can contain custom message handlers, and custom query handlers,
 	// if we want to allow any custom callbacks
 	supportedFeatures := "iterator,staking,stargate"
-	
-	// Create keeper adapters to bridge SDK 0.50 interfaces with wasmd expectations
-	accountKeeperAdapter := NewAccountKeeperAdapter(app.accountKeeper)
-	bankKeeperAdapter := NewBankKeeperAdapter(app.bankKeeper)
-	stakingKeeperAdapter := NewStakingKeeperAdapter(&app.stakingKeeper)
-	distrKeeperAdapter := NewDistributionKeeperAdapter(app.distrKeeper)
-	channelKeeperAdapter := NewChannelKeeperAdapter(&app.ibcKeeper.ChannelKeeper)
-	portKeeperAdapter := NewPortKeeperAdapter(app.ibcKeeper.PortKeeper)
-	transferPortSourceAdapter := NewICS20TransferPortSourceAdapter(app.scopedWasmKeeper)
-	
 	app.wasmKeeper = wasm.NewKeeper(
 		appCodec,
 		keys[wasm.StoreKey],
 		app.getSubspace(wasm.ModuleName),
-		accountKeeperAdapter,
-		bankKeeperAdapter,
-		stakingKeeperAdapter,
-		distrKeeperAdapter,
-		channelKeeperAdapter,
-		portKeeperAdapter,
-		transferPortSourceAdapter,
+		app.accountKeeper,
+		app.bankKeeper,
+		app.stakingKeeper,
+		app.distrKeeper,
+		app.ibcKeeper.ChannelKeeper,
+		&app.ibcKeeper.PortKeeper,
+		scopedWasmKeeper,
+		app.transferKeeper,
 		app.MsgServiceRouter(),
 		app.GRPCQueryRouter(),
 		wasmDir,
@@ -486,24 +481,18 @@ func NewWasmApp(
 	if len(enabledProposals) != 0 {
 		govRouter.AddRoute(wasm.RouterKey, wasm.NewWasmProposalHandler(app.wasmKeeper, enabledProposals))
 	}
-	ibcRouter.AddRoute(wasm.ModuleName, wasm.NewIBCHandler(app.wasmKeeper, channelKeeperAdapter))
+	ibcRouter.AddRoute(wasm.ModuleName, wasm.NewIBCHandler(app.wasmKeeper, app.ibcKeeper.ChannelKeeper))
 	app.ibcKeeper.SetRouter(ibcRouter)
 
-	// Gov keeper needs to be initialized with a config for SDK 0.50
-	govConfig := govtypes.DefaultConfig()
-	app.govKeeper = *govkeeper.NewKeeper(
+	app.govKeeper = govkeeper.NewKeeper(
 		appCodec,
-		runtime.NewKVStoreService(keys[govtypes.StoreKey]),
+		keys[govtypes.StoreKey],
+		app.getSubspace(govtypes.ModuleName),
 		app.accountKeeper,
 		app.bankKeeper,
-		&app.stakingKeeper,
-		app.distrKeeper,
-		app.BaseApp.MsgServiceRouter(),
-		govConfig,
-		authority,
+		&stakingKeeper,
+		govRouter,
 	)
-	// Set legacy router for backward compatibility with v1beta1 proposals
-	app.govKeeper.SetLegacyRouter(govRouter)
 	/****  Module Options ****/
 
 	// NOTE: we may consider parsing `appOpts` inside module constructors. For the moment
@@ -516,27 +505,27 @@ func NewWasmApp(
 		genutil.NewAppModule(
 			app.accountKeeper,
 			app.stakingKeeper,
-			app,
+			app.BaseApp.DeliverTx,
 			encodingConfig.TxConfig,
 		),
-		auth.NewAppModule(appCodec, app.accountKeeper, authsims.RandomGenesisAccounts, app.getSubspace(authtypes.ModuleName)),
+		auth.NewAppModule(appCodec, app.accountKeeper, nil),
 		vesting.NewAppModule(app.accountKeeper, app.bankKeeper),
-		bank.NewAppModule(appCodec, app.bankKeeper, app.accountKeeper, app.getSubspace(banktypes.ModuleName)),
-		gov.NewAppModule(appCodec, &app.govKeeper, app.accountKeeper, app.bankKeeper, app.getSubspace(govtypes.ModuleName)),
-		mint.NewAppModule(appCodec, app.mintKeeper, app.accountKeeper, nil, app.getSubspace(minttypes.ModuleName)),
-		slashing.NewAppModule(appCodec, app.slashingKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper, app.getSubspace(slashingtypes.ModuleName), app.interfaceRegistry),
-		distr.NewAppModule(appCodec, app.distrKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper, app.getSubspace(distrtypes.ModuleName)),
-		staking.NewAppModule(appCodec, &app.stakingKeeper, app.accountKeeper, app.bankKeeper, app.getSubspace(stakingtypes.ModuleName)),
-		upgrade.NewAppModule(&app.upgradeKeeper, addressCodec),
-		wasm.NewAppModule(appCodec, &app.wasmKeeper, NewValidatorSetSourceAdapter(&app.stakingKeeper)),
+		bank.NewAppModule(appCodec, app.bankKeeper, app.accountKeeper),
+		capability.NewAppModule(appCodec, *app.capabilityKeeper),
+		gov.NewAppModule(appCodec, app.govKeeper, app.accountKeeper, app.bankKeeper),
+		mint.NewAppModule(appCodec, app.mintKeeper, app.accountKeeper),
+		slashing.NewAppModule(appCodec, app.slashingKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper),
+		distr.NewAppModule(appCodec, app.distrKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper),
+		staking.NewAppModule(appCodec, app.stakingKeeper, app.accountKeeper, app.bankKeeper),
+		upgrade.NewAppModule(app.upgradeKeeper),
+		wasm.NewAppModule(appCodec, &app.wasmKeeper, app.stakingKeeper),
 		evidence.NewAppModule(app.evidenceKeeper),
 		feegrantmodule.NewAppModule(appCodec, app.accountKeeper, app.bankKeeper, app.FeeGrantKeeper, app.interfaceRegistry),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.accountKeeper, app.bankKeeper, app.interfaceRegistry),
 		ibc.NewAppModule(app.ibcKeeper),
 		params.NewAppModule(app.paramsKeeper),
-		consensus.NewAppModule(appCodec, app.consensusKeeper),
 		transferModule,
-		crisis.NewAppModule(&app.crisisKeeper, skipGenesisInvariants, app.getSubspace(crisistypes.ModuleName)), // always be last to make sure that it checks for all invariants and not only part of them
+		crisis.NewAppModule(&app.crisisKeeper, skipGenesisInvariants), // always be last to make sure that it checks for all invariants and not only part of them
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that
@@ -545,6 +534,7 @@ func NewWasmApp(
 	// NOTE: staking module is required if HistoricalEntries param > 0
 	app.mm.SetOrderBeginBlockers(
 		upgradetypes.ModuleName,
+		capabilitytypes.ModuleName,
 		minttypes.ModuleName,
 		distrtypes.ModuleName,
 		slashingtypes.ModuleName,
@@ -560,7 +550,7 @@ func NewWasmApp(
 		paramstypes.ModuleName,
 		vestingtypes.ModuleName,
 		// additional non simd modules
-		IBCStoreKey,
+		ibchost.ModuleName,
 		ibctransfertypes.ModuleName,
 		wasm.ModuleName,
 	)
@@ -569,6 +559,7 @@ func NewWasmApp(
 		crisistypes.ModuleName,
 		govtypes.ModuleName,
 		stakingtypes.ModuleName,
+		capabilitytypes.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
 		distrtypes.ModuleName,
@@ -582,7 +573,7 @@ func NewWasmApp(
 		upgradetypes.ModuleName,
 		vestingtypes.ModuleName,
 		// additional non simd modules
-		IBCStoreKey,
+		ibchost.ModuleName,
 		ibctransfertypes.ModuleName,
 		wasm.ModuleName,
 	)
@@ -595,6 +586,7 @@ func NewWasmApp(
 	// NOTE: wasm module should be at the end as it can call other module functionality direct or via message dispatching during
 	// genesis phase. For example bank transfer, auth account check, staking, ...
 	app.mm.SetOrderInitGenesis(
+		capabilitytypes.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
 		distrtypes.ModuleName,
@@ -611,7 +603,7 @@ func NewWasmApp(
 		upgradetypes.ModuleName,
 		vestingtypes.ModuleName,
 		// additional non simd modules
-		IBCStoreKey,
+		ibchost.ModuleName,
 		ibctransfertypes.ModuleName,
 		// wasm after ibc transfer
 		wasm.ModuleName,
@@ -621,22 +613,7 @@ func NewWasmApp(
 	// app.mm.SetOrderMigrations(custom order)
 
 	app.mm.RegisterInvariants(&app.crisisKeeper)
-	
-	// Create BasicManager from the module manager with optional overrides
-	// This is the SDK 0.50 pattern for ModuleBasics with proper codec initialization
-	basicOverrides := map[string]module.AppModuleBasic{
-		genutiltypes.ModuleName: genutil.NewAppModuleBasic(genutiltypes.DefaultMessageValidator),
-		govtypes.ModuleName: gov.NewAppModuleBasic(
-			[]govclient.ProposalHandler{
-				paramsclient.ProposalHandler,
-			},
-		),
-	}
-	app.basicManager = module.NewBasicManagerFromManager(app.mm, basicOverrides)
-
-	// SDK 0.50 requirement: Register all interfaces BEFORE registering services
-	// This must be called before RegisterServices to ensure all type URLs are registered
-	app.basicManager.RegisterInterfaces(interfaceRegistry)
+	app.mm.RegisterRoutes(app.Router(), app.QueryRouter(), encodingConfig.Amino)
 
 	app.configurator = module.NewConfigurator(app.appCodec, app.MsgServiceRouter(), app.GRPCQueryRouter())
 	app.mm.RegisterServices(app.configurator)
@@ -646,18 +623,19 @@ func NewWasmApp(
 	// NOTE: this is not required apps that don't use the simulator for fuzz testing
 	// transactions
 	app.sm = module.NewSimulationManager(
-		auth.NewAppModule(appCodec, app.accountKeeper, authsims.RandomGenesisAccounts, app.getSubspace(authtypes.ModuleName)),
-		bank.NewAppModule(appCodec, app.bankKeeper, app.accountKeeper, app.getSubspace(banktypes.ModuleName)),
+		auth.NewAppModule(appCodec, app.accountKeeper, authsims.RandomGenesisAccounts),
+		bank.NewAppModule(appCodec, app.bankKeeper, app.accountKeeper),
+		capability.NewAppModule(appCodec, *app.capabilityKeeper),
 		feegrantmodule.NewAppModule(appCodec, app.accountKeeper, app.bankKeeper, app.FeeGrantKeeper, app.interfaceRegistry),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.accountKeeper, app.bankKeeper, app.interfaceRegistry),
-		gov.NewAppModule(appCodec, &app.govKeeper, app.accountKeeper, app.bankKeeper, app.getSubspace(govtypes.ModuleName)),
-		mint.NewAppModule(appCodec, app.mintKeeper, app.accountKeeper, nil, app.getSubspace(minttypes.ModuleName)),
-		staking.NewAppModule(appCodec, &app.stakingKeeper, app.accountKeeper, app.bankKeeper, app.getSubspace(stakingtypes.ModuleName)),
-		distr.NewAppModule(appCodec, app.distrKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper, app.getSubspace(distrtypes.ModuleName)),
-		slashing.NewAppModule(appCodec, app.slashingKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper, app.getSubspace(slashingtypes.ModuleName), app.interfaceRegistry),
+		gov.NewAppModule(appCodec, app.govKeeper, app.accountKeeper, app.bankKeeper),
+		mint.NewAppModule(appCodec, app.mintKeeper, app.accountKeeper),
+		staking.NewAppModule(appCodec, app.stakingKeeper, app.accountKeeper, app.bankKeeper),
+		distr.NewAppModule(appCodec, app.distrKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper),
+		slashing.NewAppModule(appCodec, app.slashingKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper),
 		params.NewAppModule(app.paramsKeeper),
 		evidence.NewAppModule(app.evidenceKeeper),
-		wasm.NewAppModule(appCodec, &app.wasmKeeper, NewValidatorSetSourceAdapter(&app.stakingKeeper)),
+		wasm.NewAppModule(appCodec, &app.wasmKeeper, app.stakingKeeper),
 		ibc.NewAppModule(app.ibcKeeper),
 		transferModule,
 	)
@@ -678,7 +656,7 @@ func NewWasmApp(
 				SignModeHandler: encodingConfig.TxConfig.SignModeHandler(),
 				SigGasConsumer:  ante.DefaultSigVerificationGasConsumer,
 			},
-			IBCKeeper:         app.ibcKeeper,
+			IBCChannelkeeper:  app.ibcKeeper.ChannelKeeper,
 			WasmConfig:        &wasmConfig,
 			TXCounterStoreKey: keys[wasm.StoreKey],
 		},
@@ -688,15 +666,9 @@ func NewWasmApp(
 	}
 
 	app.SetAnteHandler(anteHandler)
-	app.SetPreBlocker(app.PreBlocker)
 	app.SetInitChainer(app.InitChainer)
 	app.SetBeginBlocker(app.BeginBlocker)
 	app.SetEndBlocker(app.EndBlocker)
-
-	// Register upgrade handlers for SDK 0.47 → 0.50 migration.
-	// Must be called after RegisterServices (so migrations are registered)
-	// and before LoadLatestVersion (so the store loader is set before loading).
-	app.RegisterUpgradeHandlers()
 
 	if loadLatest {
 		if err := app.LoadLatestVersion(); err != nil {
@@ -710,32 +682,30 @@ func NewWasmApp(
 		}
 	}
 
+	app.scopedIBCKeeper = scopedIBCKeeper
+	app.scopedTransferKeeper = scopedTransferKeeper
+	app.scopedWasmKeeper = scopedWasmKeeper
 	return app
 }
 
 // Name returns the name of the App
 func (app *WasmApp) Name() string { return app.BaseApp.Name() }
 
-// PreBlocker application updates every pre block
-func (app *WasmApp) PreBlocker(ctx sdk.Context, _ *abci.RequestFinalizeBlock) (*sdk.ResponsePreBlock, error) {
-	return app.mm.PreBlock(ctx)
-}
-
-// BeginBlocker application updates every begin block
-func (app *WasmApp) BeginBlocker(ctx sdk.Context) (sdk.BeginBlock, error) {
-	return app.mm.BeginBlock(ctx)
+// application updates every begin block
+func (app *WasmApp) BeginBlocker(ctx sdk.Context, req abci.RequestBeginBlock) abci.ResponseBeginBlock {
+	return app.mm.BeginBlock(ctx, req)
 }
 
 // EndBlocker application updates every end block
-func (app *WasmApp) EndBlocker(ctx sdk.Context) (sdk.EndBlock, error) {
-	return app.mm.EndBlock(ctx)
+func (app *WasmApp) EndBlocker(ctx sdk.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
+	return app.mm.EndBlock(ctx, req)
 }
 
 // InitChainer application update at chain initialization
-func (app *WasmApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
+func (app *WasmApp) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
 	var genesisState GenesisState
 	if err := tmjson.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
-		return nil, err
+		panic(err)
 	}
 
 	app.upgradeKeeper.SetModuleVersionMap(ctx, app.mm.GetVersionMap())
@@ -783,13 +753,22 @@ func (app *WasmApp) SimulationManager() *module.SimulationManager {
 // API server.
 func (app *WasmApp) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.APIConfig) {
 	clientCtx := apiSvr.ClientCtx
+	rpc.RegisterRoutes(clientCtx, apiSvr.Router)
+	// Register legacy tx routes.
+	authrest.RegisterTxRoutes(clientCtx, apiSvr.Router)
 	// Register new tx routes from grpc-gateway.
 	authtx.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
-	// Register new CometBFT queries routes from grpc-gateway.
-	cmtservice.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
+	// Register new tendermint queries routes from grpc-gateway.
+	tmservice.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
 
-	// Register grpc-gateway routes for all modules.
-	app.basicManager.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
+	// Register legacy and grpc-gateway routes for all modules.
+	ModuleBasics.RegisterRESTRoutes(clientCtx, apiSvr.Router)
+	ModuleBasics.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
+
+	// register swagger API from root so that other applications can override easily
+	if apiConfig.Swagger {
+		RegisterSwaggerAPI(apiSvr.Router)
+	}
 }
 
 // RegisterTxService implements the Application.RegisterTxService method.
@@ -799,16 +778,22 @@ func (app *WasmApp) RegisterTxService(clientCtx client.Context) {
 
 // RegisterTendermintService implements the Application.RegisterTendermintService method.
 func (app *WasmApp) RegisterTendermintService(clientCtx client.Context) {
-	cmtservice.RegisterTendermintService(clientCtx, app.BaseApp.GRPCQueryRouter(), app.interfaceRegistry, app.Query)
-}
-
-// RegisterNodeService implements the Application.RegisterNodeService method.
-func (app *WasmApp) RegisterNodeService(clientCtx client.Context, cfg config.Config) {
-	nodeservice.RegisterNodeService(clientCtx, app.BaseApp.GRPCQueryRouter(), cfg)
+	tmservice.RegisterTendermintService(app.BaseApp.GRPCQueryRouter(), clientCtx, app.interfaceRegistry)
 }
 
 func (app *WasmApp) AppCodec() codec.Codec {
 	return app.appCodec
+}
+
+// RegisterSwaggerAPI registers swagger route with API Server
+func RegisterSwaggerAPI(rtr *mux.Router) {
+	statikFS, err := fs.New()
+	if err != nil {
+		panic(err)
+	}
+
+	staticServer := http.FileServer(statikFS)
+	rtr.PathPrefix("/swagger/").Handler(http.StripPrefix("/swagger/", staticServer))
 }
 
 // GetMaccPerms returns a copy of the module account permissions
@@ -821,7 +806,7 @@ func GetMaccPerms() map[string][]string {
 }
 
 // initParamsKeeper init params keeper and its subspaces
-func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino, key, tkey storetypes.StoreKey) paramskeeper.Keeper {
+func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino, key, tkey sdk.StoreKey) paramskeeper.Keeper {
 	paramsKeeper := paramskeeper.NewKeeper(appCodec, legacyAmino, key, tkey)
 
 	paramsKeeper.Subspace(authtypes.ModuleName)
@@ -830,12 +815,11 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(minttypes.ModuleName)
 	paramsKeeper.Subspace(distrtypes.ModuleName)
 	paramsKeeper.Subspace(slashingtypes.ModuleName)
-	paramsKeeper.Subspace(govtypes.ModuleName)
+	paramsKeeper.Subspace(govtypes.ModuleName).WithKeyTable(govtypes.ParamKeyTable())
 	paramsKeeper.Subspace(crisistypes.ModuleName)
 	paramsKeeper.Subspace(ibctransfertypes.ModuleName)
-	paramsKeeper.Subspace(IBCStoreKey)
+	paramsKeeper.Subspace(ibchost.ModuleName)
 	paramsKeeper.Subspace(wasm.ModuleName)
-	paramsKeeper.Subspace(baseapp.Paramspace).WithKeyTable(paramstypes.ConsensusParamsKeyTable())
 
 	return paramsKeeper
 }

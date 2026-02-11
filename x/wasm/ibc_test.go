@@ -3,9 +3,9 @@ package wasm
 import (
 	"testing"
 
-	wasmvmtypes "github.com/CosmWasm/wasmvm/v2/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
 	"github.com/stretchr/testify/assert"
 )
 

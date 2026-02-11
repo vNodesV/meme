@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	wasmvmtypes "github.com/CosmWasm/wasmvm/v2/types"
+	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 
@@ -55,12 +55,12 @@ func TestHasWasmModuleEvent(t *testing.T) {
 func TestNewCustomEvents(t *testing.T) {
 	myContract := RandomAccountAddress(t)
 	specs := map[string]struct {
-		src     wasmvmtypes.Array[wasmvmtypes.Event]
+		src     wasmvmtypes.Events
 		exp     sdk.Events
 		isError bool
 	}{
 		"all good": {
-			src: wasmvmtypes.Array[wasmvmtypes.Event]{{
+			src: wasmvmtypes.Events{{
 				Type:       "foo",
 				Attributes: []wasmvmtypes.EventAttribute{{Key: "myKey", Value: "myVal"}},
 			}},
@@ -69,7 +69,7 @@ func TestNewCustomEvents(t *testing.T) {
 				sdk.NewAttribute("myKey", "myVal"))},
 		},
 		"multiple attributes": {
-			src: wasmvmtypes.Array[wasmvmtypes.Event]{{
+			src: wasmvmtypes.Events{{
 				Type: "foo",
 				Attributes: []wasmvmtypes.EventAttribute{{Key: "myKey", Value: "myVal"},
 					{Key: "myOtherKey", Value: "myOtherVal"}},
@@ -80,7 +80,7 @@ func TestNewCustomEvents(t *testing.T) {
 				sdk.NewAttribute("myOtherKey", "myOtherVal"))},
 		},
 		"multiple events": {
-			src: wasmvmtypes.Array[wasmvmtypes.Event]{{
+			src: wasmvmtypes.Events{{
 				Type:       "foo",
 				Attributes: []wasmvmtypes.EventAttribute{{Key: "myKey", Value: "myVal"}},
 			}, {
@@ -97,27 +97,27 @@ func TestNewCustomEvents(t *testing.T) {
 			},
 		},
 		"without attributes": {
-			src: wasmvmtypes.Array[wasmvmtypes.Event]{{
+			src: wasmvmtypes.Events{{
 				Type: "foo",
 			}},
 			exp: sdk.Events{sdk.NewEvent("wasm-foo",
 				sdk.NewAttribute("_contract_address", myContract.String()))},
 		},
 		"error on short event type": {
-			src: wasmvmtypes.Array[wasmvmtypes.Event]{{
+			src: wasmvmtypes.Events{{
 				Type: "f",
 			}},
 			isError: true,
 		},
 		"error on _contract_address": {
-			src: wasmvmtypes.Array[wasmvmtypes.Event]{{
+			src: wasmvmtypes.Events{{
 				Type:       "foo",
 				Attributes: []wasmvmtypes.EventAttribute{{Key: "_contract_address", Value: RandomBech32AccountAddress(t)}},
 			}},
 			isError: true,
 		},
 		"error on reserved prefix": {
-			src: wasmvmtypes.Array[wasmvmtypes.Event]{{
+			src: wasmvmtypes.Events{{
 				Type: "wasm",
 				Attributes: []wasmvmtypes.EventAttribute{
 					{Key: "_reserved", Value: "is skipped"},
@@ -126,7 +126,7 @@ func TestNewCustomEvents(t *testing.T) {
 			isError: true,
 		},
 		"error on empty value": {
-			src: wasmvmtypes.Array[wasmvmtypes.Event]{{
+			src: wasmvmtypes.Events{{
 				Type: "boom",
 				Attributes: []wasmvmtypes.EventAttribute{
 					{Key: "some", Value: "data"},
@@ -136,7 +136,7 @@ func TestNewCustomEvents(t *testing.T) {
 			isError: true,
 		},
 		"error on empty key": {
-			src: wasmvmtypes.Array[wasmvmtypes.Event]{{
+			src: wasmvmtypes.Events{{
 				Type: "boom",
 				Attributes: []wasmvmtypes.EventAttribute{
 					{Key: "some", Value: "data"},
@@ -146,7 +146,7 @@ func TestNewCustomEvents(t *testing.T) {
 			isError: true,
 		},
 		"error on whitespace type": {
-			src: wasmvmtypes.Array[wasmvmtypes.Event]{{
+			src: wasmvmtypes.Events{{
 				Type: "    f   ",
 				Attributes: []wasmvmtypes.EventAttribute{
 					{Key: "some", Value: "data"},
@@ -155,7 +155,7 @@ func TestNewCustomEvents(t *testing.T) {
 			isError: true,
 		},
 		"error on only whitespace key": {
-			src: wasmvmtypes.Array[wasmvmtypes.Event]{{
+			src: wasmvmtypes.Events{{
 				Type: "boom",
 				Attributes: []wasmvmtypes.EventAttribute{
 					{Key: "some", Value: "data"},
@@ -165,7 +165,7 @@ func TestNewCustomEvents(t *testing.T) {
 			isError: true,
 		},
 		"error on only whitespace value": {
-			src: wasmvmtypes.Array[wasmvmtypes.Event]{{
+			src: wasmvmtypes.Events{{
 				Type: "boom",
 				Attributes: []wasmvmtypes.EventAttribute{
 					{Key: "some", Value: "data"},
@@ -175,7 +175,7 @@ func TestNewCustomEvents(t *testing.T) {
 			isError: true,
 		},
 		"strip out whitespace": {
-			src: wasmvmtypes.Array[wasmvmtypes.Event]{{
+			src: wasmvmtypes.Events{{
 				Type:       "  food\n",
 				Attributes: []wasmvmtypes.EventAttribute{{Key: "my Key", Value: "\tmyVal"}},
 			}},

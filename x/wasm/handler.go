@@ -3,20 +3,18 @@ package wasm
 import (
 	"fmt"
 
-	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/gogo/protobuf/proto"
+	abci "github.com/tendermint/tendermint/abci/types"
 
 	"github.com/CosmWasm/wasmd/x/wasm/keeper"
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 
-	errorsmod "cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 // NewHandler returns a handler for "wasm" type messages.
-// Note: In SDK 0.50+, the sdk.Handler type is removed. This function now returns keeper.Handler type.
-func NewHandler(k types.ContractOpsKeeper) keeper.Handler {
+func NewHandler(k types.ContractOpsKeeper) sdk.Handler {
 	msgServer := keeper.NewMsgServerImpl(k)
 
 	return func(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
@@ -41,7 +39,7 @@ func NewHandler(k types.ContractOpsKeeper) keeper.Handler {
 			res, err = msgServer.ClearAdmin(sdk.WrapSDKContext(ctx), msg)
 		default:
 			errMsg := fmt.Sprintf("unrecognized wasm message type: %T", msg)
-			return nil, errorsmod.Wrap(sdkerrors.ErrUnknownRequest, errMsg)
+			return nil, sdkerrors.Wrap(sdkerrors.ErrUnknownRequest, errMsg)
 		}
 
 		ctx = ctx.WithEventManager(filterMessageEvents(ctx))

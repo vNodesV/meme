@@ -7,10 +7,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/gov/client/cli"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	v1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -64,23 +62,11 @@ func ProposalStoreCodeCmd() *cobra.Command {
 				InstantiatePermission: src.InstantiatePermission,
 			}
 
-			// Wrap legacy content for SDK 0.50
-			authority := authtypes.NewModuleAddress(govtypes.ModuleName).String()
-			legacyContent, err := v1.NewLegacyContent(&content, authority)
+			msg, err := govtypes.NewMsgSubmitProposal(&content, deposit, clientCtx.GetFromAddress())
 			if err != nil {
 				return err
 			}
-
-			msg, err := v1.NewMsgSubmitProposal(
-				[]sdk.Msg{legacyContent},
-				deposit,
-				clientCtx.GetFromAddress().String(),
-				"", // metadata
-				proposalTitle,
-				proposalDescr, // summary
-				false,        // expedited
-			)
-			if err != nil {
+			if err = msg.ValidateBasic(); err != nil {
 				return err
 			}
 
@@ -153,23 +139,11 @@ func ProposalInstantiateContractCmd() *cobra.Command {
 				Funds:       src.Funds,
 			}
 
-			// Wrap legacy content for SDK 0.50
-			authority := authtypes.NewModuleAddress(govtypes.ModuleName).String()
-			legacyContent, err := v1.NewLegacyContent(&content, authority)
+			msg, err := govtypes.NewMsgSubmitProposal(&content, deposit, clientCtx.GetFromAddress())
 			if err != nil {
 				return err
 			}
-
-			msg, err := v1.NewMsgSubmitProposal(
-				[]sdk.Msg{legacyContent},
-				deposit,
-				clientCtx.GetFromAddress().String(),
-				"", // metadata
-				proposalTitle,
-				proposalDescr, // summary
-				false,        // expedited
-			)
-			if err != nil {
+			if err = msg.ValidateBasic(); err != nil {
 				return err
 			}
 
@@ -233,23 +207,11 @@ func ProposalMigrateContractCmd() *cobra.Command {
 				Msg:         src.Msg,
 			}
 
-			// Wrap legacy content for SDK 0.50
-			authority := authtypes.NewModuleAddress(govtypes.ModuleName).String()
-			legacyContent, err := v1.NewLegacyContent(&content, authority)
+			msg, err := govtypes.NewMsgSubmitProposal(&content, deposit, clientCtx.GetFromAddress())
 			if err != nil {
 				return err
 			}
-
-			msg, err := v1.NewMsgSubmitProposal(
-				[]sdk.Msg{legacyContent},
-				deposit,
-				clientCtx.GetFromAddress().String(),
-				"", // metadata
-				proposalTitle,
-				proposalDescr, // summary
-				false,        // expedited
-			)
-			if err != nil {
+			if err = msg.ValidateBasic(); err != nil {
 				return err
 			}
 
@@ -322,23 +284,11 @@ func ProposalExecuteContractCmd() *cobra.Command {
 				Funds:       funds,
 			}
 
-			// Wrap legacy content for SDK 0.50
-			authority := authtypes.NewModuleAddress(govtypes.ModuleName).String()
-			legacyContent, err := v1.NewLegacyContent(&content, authority)
+			msg, err := govtypes.NewMsgSubmitProposal(&content, deposit, clientCtx.GetFromAddress())
 			if err != nil {
 				return err
 			}
-
-			msg, err := v1.NewMsgSubmitProposal(
-				[]sdk.Msg{legacyContent},
-				deposit,
-				clientCtx.GetFromAddress().String(),
-				"", // metadata
-				proposalTitle,
-				proposalDescr, // summary
-				false,        // expedited
-			)
-			if err != nil {
+			if err = msg.ValidateBasic(); err != nil {
 				return err
 			}
 
@@ -396,23 +346,11 @@ func ProposalSudoContractCmd() *cobra.Command {
 				Msg:         sudoMsg,
 			}
 
-			// Wrap legacy content for SDK 0.50
-			authority := authtypes.NewModuleAddress(govtypes.ModuleName).String()
-			legacyContent, err := v1.NewLegacyContent(&content, authority)
+			msg, err := govtypes.NewMsgSubmitProposal(&content, deposit, clientCtx.GetFromAddress())
 			if err != nil {
 				return err
 			}
-
-			msg, err := v1.NewMsgSubmitProposal(
-				[]sdk.Msg{legacyContent},
-				deposit,
-				clientCtx.GetFromAddress().String(),
-				"", // metadata
-				proposalTitle,
-				proposalDescr, // summary
-				false,        // expedited
-			)
-			if err != nil {
+			if err = msg.ValidateBasic(); err != nil {
 				return err
 			}
 
@@ -470,23 +408,11 @@ func ProposalUpdateContractAdminCmd() *cobra.Command {
 				NewAdmin:    src.NewAdmin,
 			}
 
-			// Wrap legacy content for SDK 0.50
-			authority := authtypes.NewModuleAddress(govtypes.ModuleName).String()
-			legacyContent, err := v1.NewLegacyContent(&content, authority)
+			msg, err := govtypes.NewMsgSubmitProposal(&content, deposit, clientCtx.GetFromAddress())
 			if err != nil {
 				return err
 			}
-
-			msg, err := v1.NewMsgSubmitProposal(
-				[]sdk.Msg{legacyContent},
-				deposit,
-				clientCtx.GetFromAddress().String(),
-				"", // metadata
-				proposalTitle,
-				proposalDescr, // summary
-				false,        // expedited
-			)
-			if err != nil {
+			if err = msg.ValidateBasic(); err != nil {
 				return err
 			}
 
@@ -537,23 +463,11 @@ func ProposalClearContractAdminCmd() *cobra.Command {
 				Contract:    args[0],
 			}
 
-			// Wrap legacy content for SDK 0.50
-			authority := authtypes.NewModuleAddress(govtypes.ModuleName).String()
-			legacyContent, err := v1.NewLegacyContent(&content, authority)
+			msg, err := govtypes.NewMsgSubmitProposal(&content, deposit, clientCtx.GetFromAddress())
 			if err != nil {
 				return err
 			}
-
-			msg, err := v1.NewMsgSubmitProposal(
-				[]sdk.Msg{legacyContent},
-				deposit,
-				clientCtx.GetFromAddress().String(),
-				"", // metadata
-				proposalTitle,
-				proposalDescr, // summary
-				false,        // expedited
-			)
-			if err != nil {
+			if err = msg.ValidateBasic(); err != nil {
 				return err
 			}
 
@@ -608,23 +522,11 @@ func ProposalPinCodesCmd() *cobra.Command {
 				CodeIDs:     codeIds,
 			}
 
-			// Wrap legacy content for SDK 0.50
-			authority := authtypes.NewModuleAddress(govtypes.ModuleName).String()
-			legacyContent, err := v1.NewLegacyContent(&content, authority)
+			msg, err := govtypes.NewMsgSubmitProposal(&content, deposit, clientCtx.GetFromAddress())
 			if err != nil {
 				return err
 			}
-
-			msg, err := v1.NewMsgSubmitProposal(
-				[]sdk.Msg{legacyContent},
-				deposit,
-				clientCtx.GetFromAddress().String(),
-				"", // metadata
-				proposalTitle,
-				proposalDescr, // summary
-				false,        // expedited
-			)
-			if err != nil {
+			if err = msg.ValidateBasic(); err != nil {
 				return err
 			}
 
@@ -691,23 +593,11 @@ func ProposalUnpinCodesCmd() *cobra.Command {
 				CodeIDs:     codeIds,
 			}
 
-			// Wrap legacy content for SDK 0.50
-			authority := authtypes.NewModuleAddress(govtypes.ModuleName).String()
-			legacyContent, err := v1.NewLegacyContent(&content, authority)
+			msg, err := govtypes.NewMsgSubmitProposal(&content, deposit, clientCtx.GetFromAddress())
 			if err != nil {
 				return err
 			}
-
-			msg, err := v1.NewMsgSubmitProposal(
-				[]sdk.Msg{legacyContent},
-				deposit,
-				clientCtx.GetFromAddress().String(),
-				"", // metadata
-				proposalTitle,
-				proposalDescr, // summary
-				false,        // expedited
-			)
-			if err != nil {
+			if err = msg.ValidateBasic(); err != nil {
 				return err
 			}
 

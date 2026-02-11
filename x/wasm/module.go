@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"math/rand"
 
-	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -14,21 +13,22 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
+	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
+	abci "github.com/tendermint/tendermint/abci/types"
 
 	"github.com/CosmWasm/wasmd/x/wasm/client/cli"
+	"github.com/CosmWasm/wasmd/x/wasm/client/rest"
 	"github.com/CosmWasm/wasmd/x/wasm/keeper"
 	"github.com/CosmWasm/wasmd/x/wasm/simulation"
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 )
 
 var (
-	_ module.AppModule           = AppModule{}
-	_ module.AppModuleBasic      = AppModuleBasic{}
-	_ module.HasABCIEndBlock     = AppModule{}
-	_ module.AppModuleSimulation = AppModule{}
+	_ module.AppModule      = AppModule{}
+	_ module.AppModuleBasic = AppModuleBasic{}
 )
 
 // Module init related flags
@@ -75,6 +75,11 @@ func (b AppModuleBasic) ValidateGenesis(marshaler codec.JSONCodec, config client
 	return ValidateGenesis(data)
 }
 
+// RegisterRESTRoutes registers the REST routes for the wasm module.
+func (AppModuleBasic) RegisterRESTRoutes(cliCtx client.Context, rtr *mux.Router) {
+	rest.RegisterRoutes(cliCtx, rtr)
+}
+
 // GetTxCmd returns the root tx command for the wasm module.
 func (b AppModuleBasic) GetTxCmd() *cobra.Command {
 	return cli.GetTxCmd()
@@ -106,12 +111,6 @@ type AppModule struct {
 // should be set to 1.
 func (AppModule) ConsensusVersion() uint64 { return 1 }
 
-// IsOnePerModuleType implements the depinject.OnePerModuleType interface.
-func (AppModule) IsOnePerModuleType() {}
-
-// IsAppModule implements the appmodule.AppModule interface.
-func (AppModule) IsAppModule() {}
-
 // NewAppModule creates a new AppModule object
 func NewAppModule(cdc codec.Codec, keeper *Keeper, validatorSetSource keeper.ValidatorSetSource) AppModule {
 	return AppModule{
@@ -127,11 +126,19 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterQueryServer(cfg.QueryServer(), NewQuerier(am.keeper))
 }
 
+func (am AppModule) LegacyQuerierHandler(amino *codec.LegacyAmino) sdk.Querier { //nolint:staticcheck
+	return keeper.NewLegacyQuerier(am.keeper, am.keeper.QueryGasLimit())
+}
+
 // RegisterInvariants registers the wasm module invariants.
 func (am AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {}
 
+// Route returns the message routing key for the wasm module.
+func (am AppModule) Route() sdk.Route {
+	return sdk.NewRoute(RouterKey, NewHandler(keeper.NewDefaultPermissionKeeper(am.keeper)))
+}
+
 // QuerierRoute returns the wasm module's querier route name.
-// Deprecated: QuerierRoute is kept for backward compatibility but queries should use gRPC
 func (AppModule) QuerierRoute() string {
 	return QuerierRoute
 }
@@ -141,9 +148,7 @@ func (AppModule) QuerierRoute() string {
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) []abci.ValidatorUpdate {
 	var genesisState GenesisState
 	cdc.MustUnmarshalJSON(data, &genesisState)
-	// Create handler for InitGenesis
-	handler := NewHandler(keeper.NewDefaultPermissionKeeper(am.keeper))
-	validators, err := InitGenesis(ctx, am.keeper, genesisState, am.validatorSetSource, handler)
+	validators, err := InitGenesis(ctx, am.keeper, genesisState, am.validatorSetSource, am.Route().Handler())
 	if err != nil {
 		panic(err)
 	}
@@ -157,11 +162,13 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 	return cdc.MustMarshalJSON(gs)
 }
 
+// BeginBlock returns the begin blocker for the wasm module.
+func (am AppModule) BeginBlock(_ sdk.Context, _ abci.RequestBeginBlock) {}
+
 // EndBlock returns the end blocker for the wasm module. It returns no validator
-// updates. This implements the HasABCIEndBlock interface for SDK 0.50+
-func (AppModule) EndBlock(ctx context.Context) ([]abci.ValidatorUpdate, error) {
-	// No end block logic needed for wasm module
-	return []abci.ValidatorUpdate{}, nil
+// updates.
+func (AppModule) EndBlock(_ sdk.Context, _ abci.RequestEndBlock) []abci.ValidatorUpdate {
+	return []abci.ValidatorUpdate{}
 }
 
 // ____________________________________________________________________________
@@ -174,19 +181,17 @@ func (AppModule) GenerateGenesisState(simState *module.SimulationState) {
 }
 
 // ProposalContents doesn't return any content functions for governance proposals.
-// Deprecated: ProposalContents is deprecated and may be removed in future versions
 func (AppModule) ProposalContents(simState module.SimulationState) []simtypes.WeightedProposalContent {
 	return nil
 }
 
-// RandomizedParams creates randomized wasm param changes for the simulator.
-// Deprecated: RandomizedParams is deprecated in SDK 0.50+
-func (am AppModule) RandomizedParams(r *rand.Rand) []simtypes.LegacyParamChange {
-	return nil
+// RandomizedParams creates randomized bank param changes for the simulator.
+func (am AppModule) RandomizedParams(r *rand.Rand) []simtypes.ParamChange {
+	return simulation.ParamChanges(r, am.cdc)
 }
 
 // RegisterStoreDecoder registers a decoder for supply module's types
-func (am AppModule) RegisterStoreDecoder(sdr simtypes.StoreDecoderRegistry) {
+func (am AppModule) RegisterStoreDecoder(sdr sdk.StoreDecoderRegistry) {
 }
 
 // WeightedOperations returns the all the gov module operations with their respective weights.

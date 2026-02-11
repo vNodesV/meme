@@ -1,8 +1,8 @@
 #!/usr/bin/make -f
 
 PACKAGES_SIMTEST=$(shell go list ./... | grep '/simulation')
-#VERSION := $(shell echo $(shell git describe --tags --always --dirty) | sed 's/^v//')
-VERSION := v1.1.0_vN
+VERSION := $(shell echo $(shell git describe --tags --always --dirty) | sed 's/^v//')
+#VERSION := v1.0.1
 COMMIT := $(shell git log -1 --format='%H')
 LEDGER_ENABLED ?= true
 SDK_PACK := $(shell go list -m github.com/cosmos/cosmos-sdk | sed  's/ /\@/g')
@@ -45,9 +45,6 @@ endif
 
 ifeq ($(WITH_CLEVELDB),yes)
   build_tags += gcc
-else
-  # Use goleveldb by default (when not using cleveldb)
-  build_tags += goleveldb
 endif
 build_tags += $(BUILD_TAGS)
 build_tags := $(strip $(build_tags))
