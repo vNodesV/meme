@@ -102,10 +102,11 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 		WithAccountRetriever(authtypes.AccountRetriever{}).
 		WithBroadcastMode(flags.BroadcastSync).
 		WithHomeDir(app.DefaultNodeHome).
-		WithViper("").
-		WithAddressCodec(accountAddressCodec).
-		WithValidatorAddressCodec(validatorAddressCodec).
-		WithConsensusAddressCodec(consensusAddressCodec)
+		WithViper("")
+
+	initClientCtx.AddressCodec = accountAddressCodec
+	initClientCtx.ValidatorAddressCodec = validatorAddressCodec
+	initClientCtx.ConsensusAddressCodec = consensusAddressCodec
 
 	rootCmd := &cobra.Command{
 		Use:   version.AppName,
