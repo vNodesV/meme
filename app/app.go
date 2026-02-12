@@ -87,6 +87,7 @@ import (
 	ibctransfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	ibc "github.com/cosmos/ibc-go/v8/modules/core"
 	ibcclienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	ibcconnectiontypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	porttypes "github.com/cosmos/ibc-go/v8/modules/core/05-port/types"
 	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
 	"github.com/spf13/cast"
@@ -835,7 +836,9 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(govtypes.ModuleName).WithKeyTable(govv1.ParamKeyTable())              //nolint:staticcheck // needed for migration
 	paramsKeeper.Subspace(crisistypes.ModuleName).WithKeyTable(crisistypes.ParamKeyTable())     //nolint:staticcheck // needed for migration
 	paramsKeeper.Subspace(ibctransfertypes.ModuleName)
-	paramsKeeper.Subspace(IBCStoreKey).WithKeyTable(ibcclienttypes.ParamKeyTable()) //nolint:staticcheck // needed for IBC client migration
+	ibcKeyTable := ibcclienttypes.ParamKeyTable()              //nolint:staticcheck // needed for IBC client migration
+	ibcKeyTable.RegisterParamSet(&ibcconnectiontypes.Params{}) //nolint:staticcheck // needed for IBC connection migration
+	paramsKeeper.Subspace(IBCStoreKey).WithKeyTable(ibcKeyTable)
 	paramsKeeper.Subspace(wasm.ModuleName)
 	paramsKeeper.Subspace(baseapp.Paramspace).WithKeyTable(paramstypes.ConsensusParamsKeyTable())
 
