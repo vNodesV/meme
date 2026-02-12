@@ -15,7 +15,7 @@ import (
 
 // UpgradeName defines the on-chain upgrade name for the SDK 0.50 migration.
 // This must match the name used in the governance upgrade proposal.
-const UpgradeName = "v2-sdk50"
+const UpgradeName = "sdk50"
 
 // RegisterUpgradeHandlers registers the upgrade handler that migrates state
 // from Cosmos SDK 0.47.x to 0.50.x. This includes:
