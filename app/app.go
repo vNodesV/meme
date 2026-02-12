@@ -18,11 +18,11 @@ import (
 	"cosmossdk.io/x/upgrade"
 	upgradekeeper "cosmossdk.io/x/upgrade/keeper"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
-	dbm "github.com/cosmos/cosmos-db"
 	abci "github.com/cometbft/cometbft/abci/types"
 	tmjson "github.com/cometbft/cometbft/libs/json"
 	tmos "github.com/cometbft/cometbft/libs/os"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -186,31 +186,31 @@ type WasmApp struct {
 	memKeys map[string]*storetypes.MemoryStoreKey
 
 	// keepers
-	accountKeeper      authkeeper.AccountKeeper
-	bankKeeper         bankkeeper.Keeper
-	capabilityKeeper   *capabilitykeeper.Keeper
-	stakingKeeper      stakingkeeper.Keeper
-	slashingKeeper     slashingkeeper.Keeper
-	mintKeeper         mintkeeper.Keeper
-	distrKeeper        distrkeeper.Keeper
-	govKeeper          govkeeper.Keeper
-	crisisKeeper       crisiskeeper.Keeper
-	upgradeKeeper      upgradekeeper.Keeper
-	paramsKeeper       paramskeeper.Keeper
-	consensusKeeper    consensuskeeper.Keeper
-	ibcKeeper          *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
-	evidenceKeeper     evidencekeeper.Keeper
-	transferKeeper     ibctransferkeeper.Keeper
-	FeeGrantKeeper     feegrantkeeper.Keeper
-	AuthzKeeper        authzkeeper.Keeper
-	wasmKeeper         wasm.Keeper
-	scopedIBCKeeper    capabilitykeeper.ScopedKeeper
+	accountKeeper        authkeeper.AccountKeeper
+	bankKeeper           bankkeeper.Keeper
+	capabilityKeeper     *capabilitykeeper.Keeper
+	stakingKeeper        stakingkeeper.Keeper
+	slashingKeeper       slashingkeeper.Keeper
+	mintKeeper           mintkeeper.Keeper
+	distrKeeper          distrkeeper.Keeper
+	govKeeper            govkeeper.Keeper
+	crisisKeeper         crisiskeeper.Keeper
+	upgradeKeeper        upgradekeeper.Keeper
+	paramsKeeper         paramskeeper.Keeper
+	consensusKeeper      consensuskeeper.Keeper
+	ibcKeeper            *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
+	evidenceKeeper       evidencekeeper.Keeper
+	transferKeeper       ibctransferkeeper.Keeper
+	FeeGrantKeeper       feegrantkeeper.Keeper
+	AuthzKeeper          authzkeeper.Keeper
+	wasmKeeper           wasm.Keeper
+	scopedIBCKeeper      capabilitykeeper.ScopedKeeper
 	scopedTransferKeeper capabilitykeeper.ScopedKeeper
-	scopedWasmKeeper   capabilitykeeper.ScopedKeeper
+	scopedWasmKeeper     capabilitykeeper.ScopedKeeper
 
 	// the module manager
 	mm *module.Manager
-	
+
 	// basic module manager for providing to CLI and genesis
 	basicManager module.BasicManager
 
@@ -454,7 +454,7 @@ func NewWasmApp(
 	// The last arguments can contain custom message handlers, and custom query handlers,
 	// if we want to allow any custom callbacks
 	supportedFeatures := "iterator,staking,stargate"
-	
+
 	// Create keeper adapters to bridge SDK 0.50 interfaces with wasmd expectations
 	accountKeeperAdapter := NewAccountKeeperAdapter(app.accountKeeper)
 	bankKeeperAdapter := NewBankKeeperAdapter(app.bankKeeper)
@@ -463,7 +463,7 @@ func NewWasmApp(
 	channelKeeperAdapter := NewChannelKeeperAdapter(&app.ibcKeeper.ChannelKeeper)
 	portKeeperAdapter := NewPortKeeperAdapter(app.ibcKeeper.PortKeeper)
 	transferPortSourceAdapter := NewICS20TransferPortSourceAdapter(app.scopedWasmKeeper)
-	
+
 	app.wasmKeeper = wasm.NewKeeper(
 		appCodec,
 		keys[wasm.StoreKey],
@@ -622,7 +622,7 @@ func NewWasmApp(
 	// app.mm.SetOrderMigrations(custom order)
 
 	app.mm.RegisterInvariants(&app.crisisKeeper)
-	
+
 	// Create BasicManager from the module manager with optional overrides
 	// This is the SDK 0.50 pattern for ModuleBasics with proper codec initialization
 	basicOverrides := map[string]module.AppModuleBasic{

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"cosmossdk.io/errors"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 	"github.com/gogo/protobuf/jsonpb"
 	pkgerrors "github.com/pkg/errors"
@@ -164,6 +164,17 @@ func validateMaxWasmCodeSize(i interface{}) error {
 		return errors.Wrap(ErrInvalid, "must be greater 0")
 	}
 	return nil
+}
+
+func (a AccessConfig) AllowedClients() []sdk.AccAddress {
+	if a.Permission != AccessTypeOnlyAddress {
+		return nil
+	}
+	addr, err := sdk.AccAddressFromBech32(a.Address)
+	if err != nil {
+		return nil
+	}
+	return []sdk.AccAddress{addr}
 }
 
 func (a AccessConfig) ValidateBasic() error {

@@ -19,11 +19,11 @@ const UpgradeName = "sdk50"
 
 // RegisterUpgradeHandlers registers the upgrade handler that migrates state
 // from Cosmos SDK 0.47.x to 0.50.x. This includes:
-// - Migrating consensus params from the legacy x/params subspace to the new
-//   x/consensus module collections store.
-// - Running all registered module migrations (e.g., mint v1→v2, staking v4→v5)
-//   which migrate module params from x/params subspaces to their respective
-//   module collections stores.
+//   - Migrating consensus params from the legacy x/params subspace to the new
+//     x/consensus module collections store.
+//   - Running all registered module migrations (e.g., mint v1→v2, staking v4→v5)
+//     which migrate module params from x/params subspaces to their respective
+//     module collections stores.
 func (app *WasmApp) RegisterUpgradeHandlers() {
 	app.upgradeKeeper.SetUpgradeHandler(
 		UpgradeName,
