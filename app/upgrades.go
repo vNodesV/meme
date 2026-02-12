@@ -49,7 +49,7 @@ func (app *WasmApp) RegisterUpgradeHandlers() {
 					"block_max_gas", cp.Block.MaxGas,
 				)
 			} else {
-				sdkCtx.Logger().Info("warning: consensus parameters are undefined; skipping migration", "upgrade", UpgradeName)
+				sdkCtx.Logger().Warn("consensus parameters are undefined; skipping migration", "upgrade", UpgradeName)
 			}
 
 			// Step 2: Run all module migrations. This executes registered
