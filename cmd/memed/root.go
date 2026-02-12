@@ -89,10 +89,6 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 	cfg.SetAddressVerifier(wasmtypes.VerifyAddressLen())
 	cfg.Seal()
 
-	accountAddressCodec := addresscodec.NewBech32Codec(cfg.GetBech32AccountAddrPrefix())
-	validatorAddressCodec := addresscodec.NewBech32Codec(cfg.GetBech32ValidatorAddrPrefix())
-	consensusAddressCodec := addresscodec.NewBech32Codec(cfg.GetBech32ConsensusAddrPrefix())
-
 	initClientCtx := client.Context{}.
 		WithCodec(encodingConfig.Marshaler).
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
@@ -103,10 +99,6 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 		WithBroadcastMode(flags.BroadcastSync).
 		WithHomeDir(app.DefaultNodeHome).
 		WithViper("")
-
-	initClientCtx.AddressCodec = accountAddressCodec
-	initClientCtx.ValidatorAddressCodec = validatorAddressCodec
-	initClientCtx.ConsensusAddressCodec = consensusAddressCodec
 
 	rootCmd := &cobra.Command{
 		Use:   version.AppName,
