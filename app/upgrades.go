@@ -36,11 +36,21 @@ func (app *WasmApp) RegisterUpgradeHandlers() {
 			// under the "baseapp" subspace. SDK 0.50 stores them in the
 			// x/consensus module using collections.
 			baseAppLegacySS := app.getSubspace(baseapp.Paramspace)
-			if err := baseapp.MigrateParams(sdkCtx, baseAppLegacySS, app.consensusKeeper.ParamsStore); err != nil {
-				return nil, err
+			
+			// Get the consensus params from the legacy subspace and explicitly
+			// set them in the new consensus keeper. This ensures all params
+			// including BlockParams are properly registered and accessible.
+			if cp := baseapp.GetConsensusParams(sdkCtx, baseAppLegacySS); cp != nil {
+				if err := app.consensusKeeper.ParamsStore.Set(sdkCtx, *cp); err != nil {
+					return nil, err
+				}
+				sdkCtx.Logger().Info("migrated consensus params from x/params to x/consensus module",
+					"block_max_bytes", cp.Block.MaxBytes,
+					"block_max_gas", cp.Block.MaxGas,
+				)
+			} else {
+				sdkCtx.Logger().Info("warning: consensus parameters are undefined; skipping migration", "upgrade", UpgradeName)
 			}
-
-			sdkCtx.Logger().Info("migrated consensus params from x/params to x/consensus module")
 
 			// Step 2: Run all module migrations. This executes registered
 			// migrations for each module (e.g., mint Migrate1to2 which moves
