@@ -72,6 +72,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/params"
 	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
 	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
+	blocktypes "github.com/cosmos/cosmos-sdk/x/params/types"
 	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
@@ -836,6 +837,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(IBCStoreKey)
 	paramsKeeper.Subspace(wasm.ModuleName)
 	paramsKeeper.Subspace(baseapp.Paramspace)
+	paramsKeeper.Subspace(blocktypes.ModuleName)
 
 	return paramsKeeper
 }
