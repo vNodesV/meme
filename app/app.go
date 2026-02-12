@@ -836,6 +836,5 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(IBCStoreKey)
 	paramsKeeper.Subspace(wasm.ModuleName)
 	paramsKeeper.Subspace(baseapp.Paramspace)
-
 	return paramsKeeper
 }
