@@ -2,7 +2,7 @@
 
 PACKAGES_SIMTEST=$(shell go list ./... | grep '/simulation')
 #VERSION := $(shell echo $(shell git describe --tags --always --dirty) | sed 's/^v//')
-VERSION := v1.1.0_vN
+VERSION := sdk50
 COMMIT := $(shell git log -1 --format='%H')
 LEDGER_ENABLED ?= true
 SDK_PACK := $(shell go list -m github.com/cosmos/cosmos-sdk | sed  's/ /\@/g')
