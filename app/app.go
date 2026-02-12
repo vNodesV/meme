@@ -827,17 +827,17 @@ func GetMaccPerms() map[string][]string {
 func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino, key, tkey storetypes.StoreKey) paramskeeper.Keeper {
 	paramsKeeper := paramskeeper.NewKeeper(appCodec, legacyAmino, key, tkey)
 
-	paramsKeeper.Subspace(authtypes.ModuleName).WithKeyTable(authtypes.ParamKeyTable())         //nolint:staticcheck // needed for migration
-	paramsKeeper.Subspace(banktypes.ModuleName).WithKeyTable(banktypes.ParamKeyTable())         //nolint:staticcheck // needed for migration
-	paramsKeeper.Subspace(stakingtypes.ModuleName).WithKeyTable(stakingtypes.ParamKeyTable())   //nolint:staticcheck // needed for migration
-	paramsKeeper.Subspace(minttypes.ModuleName).WithKeyTable(minttypes.ParamKeyTable())         //nolint:staticcheck // needed for migration
-	paramsKeeper.Subspace(distrtypes.ModuleName).WithKeyTable(distrtypes.ParamKeyTable())       //nolint:staticcheck // needed for migration
-	paramsKeeper.Subspace(slashingtypes.ModuleName).WithKeyTable(slashingtypes.ParamKeyTable()) //nolint:staticcheck // needed for migration
-	paramsKeeper.Subspace(govtypes.ModuleName).WithKeyTable(govv1.ParamKeyTable())              //nolint:staticcheck // needed for migration
-	paramsKeeper.Subspace(crisistypes.ModuleName).WithKeyTable(crisistypes.ParamKeyTable())     //nolint:staticcheck // needed for migration
+	paramsKeeper.Subspace(authtypes.ModuleName).WithKeyTable(authtypes.ParamKeyTable())               //nolint:staticcheck // needed for migration
+	paramsKeeper.Subspace(banktypes.ModuleName).WithKeyTable(banktypes.ParamKeyTable())               //nolint:staticcheck // needed for migration
+	paramsKeeper.Subspace(stakingtypes.ModuleName).WithKeyTable(stakingtypes.ParamKeyTable())         //nolint:staticcheck // needed for migration
+	paramsKeeper.Subspace(minttypes.ModuleName).WithKeyTable(minttypes.ParamKeyTable())               //nolint:staticcheck // needed for migration
+	paramsKeeper.Subspace(distrtypes.ModuleName).WithKeyTable(distrtypes.ParamKeyTable())             //nolint:staticcheck // needed for migration
+	paramsKeeper.Subspace(slashingtypes.ModuleName).WithKeyTable(slashingtypes.ParamKeyTable())       //nolint:staticcheck // needed for migration
+	paramsKeeper.Subspace(govtypes.ModuleName).WithKeyTable(govv1.ParamKeyTable())                    //nolint:staticcheck // needed for migration
+	paramsKeeper.Subspace(crisistypes.ModuleName).WithKeyTable(crisistypes.ParamKeyTable())           //nolint:staticcheck // needed for migration
 	paramsKeeper.Subspace(ibctransfertypes.ModuleName).WithKeyTable(ibctransfertypes.ParamKeyTable()) //nolint:staticcheck // needed for IBC transfer migration
-	ibcKeyTable := ibcclienttypes.ParamKeyTable()              //nolint:staticcheck // needed for IBC client migration
-	ibcKeyTable.RegisterParamSet(&ibcconnectiontypes.Params{}) //nolint:staticcheck // needed for IBC connection migration
+	ibcKeyTable := ibcclienttypes.ParamKeyTable()                                                     //nolint:staticcheck // needed for IBC client migration
+	ibcKeyTable.RegisterParamSet(&ibcconnectiontypes.Params{})                                        //nolint:staticcheck // needed for IBC connection migration
 	paramsKeeper.Subspace(IBCStoreKey).WithKeyTable(ibcKeyTable)
 	paramsKeeper.Subspace(wasm.ModuleName)
 	paramsKeeper.Subspace(baseapp.Paramspace).WithKeyTable(paramstypes.ConsensusParamsKeyTable())
