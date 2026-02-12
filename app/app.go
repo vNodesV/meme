@@ -835,7 +835,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(slashingtypes.ModuleName).WithKeyTable(slashingtypes.ParamKeyTable()) //nolint:staticcheck // needed for migration
 	paramsKeeper.Subspace(govtypes.ModuleName).WithKeyTable(govv1.ParamKeyTable())              //nolint:staticcheck // needed for migration
 	paramsKeeper.Subspace(crisistypes.ModuleName).WithKeyTable(crisistypes.ParamKeyTable())     //nolint:staticcheck // needed for migration
-	paramsKeeper.Subspace(ibctransfertypes.ModuleName)
+	paramsKeeper.Subspace(ibctransfertypes.ModuleName).WithKeyTable(ibctransfertypes.ParamKeyTable()) //nolint:staticcheck // needed for IBC transfer migration
 	ibcKeyTable := ibcclienttypes.ParamKeyTable()              //nolint:staticcheck // needed for IBC client migration
 	ibcKeyTable.RegisterParamSet(&ibcconnectiontypes.Params{}) //nolint:staticcheck // needed for IBC connection migration
 	paramsKeeper.Subspace(IBCStoreKey).WithKeyTable(ibcKeyTable)
