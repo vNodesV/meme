@@ -8,34 +8,29 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	"github.com/cosmos/gogoproto/proto"
 )
 
 const (
-	bech32PrefixAccAddr  = "meme"
-	bech32PrefixAccPub   = bech32PrefixAccAddr + sdk.PrefixPublic
-	bech32PrefixValAddr  = bech32PrefixAccAddr + sdk.PrefixValidator + sdk.PrefixOperator
-	bech32PrefixValPub   = bech32PrefixAccAddr + sdk.PrefixValidator + sdk.PrefixOperator + sdk.PrefixPublic
-	bech32PrefixConsAddr = bech32PrefixAccAddr + sdk.PrefixValidator + sdk.PrefixConsensus
-	bech32PrefixConsPub  = bech32PrefixAccAddr + sdk.PrefixValidator + sdk.PrefixConsensus + sdk.PrefixPublic
+	// Bech32 address prefixes for the meme chain
+	Bech32PrefixAccAddr  = "meme"
+	Bech32PrefixAccPub   = Bech32PrefixAccAddr + "pub"
+	Bech32PrefixValAddr  = Bech32PrefixAccAddr + "valoper"
+	Bech32PrefixValPub   = Bech32PrefixAccAddr + "valoperpub"
+	Bech32PrefixConsAddr = Bech32PrefixAccAddr + "valcons"
+	Bech32PrefixConsPub  = Bech32PrefixAccAddr + "valconspub"
 )
 
 // MakeEncodingConfig creates an EncodingConfig with proper address codecs for SDK 0.50.
 // The InterfaceRegistry is initialized with address codecs to enable transaction signing.
+// NOTE: Bech32 prefixes must be set on sdk.Config BEFORE calling this function.
 func MakeEncodingConfig() EncodingConfig {
 	amino := codec.NewLegacyAmino()
 
-	// Get SDK config for Bech32 prefixes
-	cfg := sdk.GetConfig()
-	cfg.SetBech32PrefixForAccount(bech32PrefixAccAddr, bech32PrefixAccPub)
-	cfg.SetBech32PrefixForValidator(bech32PrefixValAddr, bech32PrefixValPub)
-	cfg.SetBech32PrefixForConsensusNode(bech32PrefixConsAddr, bech32PrefixConsPub)
-
-	// Create address codecs
-	accCodec := addresscodec.NewBech32Codec(cfg.GetBech32AccountAddrPrefix())
-	valCodec := addresscodec.NewBech32Codec(cfg.GetBech32ValidatorAddrPrefix())
+	// Create address codecs using hardcoded prefixes that match app.go constants
+	accCodec := addresscodec.NewBech32Codec(Bech32PrefixAccAddr)
+	valCodec := addresscodec.NewBech32Codec(Bech32PrefixValAddr)
 
 	// Create InterfaceRegistry with proper address codecs for transaction signing
 	interfaceRegistry, err := types.NewInterfaceRegistryWithOptions(types.InterfaceRegistryOptions{
