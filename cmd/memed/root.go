@@ -332,6 +332,25 @@ func makeAppCreator(encodingConfig params.EncodingConfig) servertypes.AppCreator
 			panic(err)
 		}
 
+		chainID := cast.ToString(appOpts.Get(flags.FlagChainID))
+		if chainID == "" {
+			genesisPathCfg, _ := appOpts.Get("genesis_file").(string)
+			if genesisPathCfg == "" {
+				genesisPathCfg = filepath.Join("config", "genesis.json")
+			}
+
+			reader, err := os.Open(filepath.Join(cast.ToString(appOpts.Get(flags.FlagHome)), genesisPathCfg))
+			if err != nil {
+				panic(err)
+			}
+			defer reader.Close()
+
+			chainID, err = genutiltypes.ParseChainIDFromGenesis(reader)
+			if err != nil {
+				panic(err)
+			}
+		}
+
 		snapshotDir := filepath.Join(cast.ToString(appOpts.Get(flags.FlagHome)), "data", "snapshots")
 		snapshotDB, err := dbm.NewDB("metadata", dbm.GoLevelDBBackend, snapshotDir)
 		if err != nil {
@@ -368,6 +387,7 @@ func makeAppCreator(encodingConfig params.EncodingConfig) servertypes.AppCreator
 			baseapp.SetTrace(cast.ToBool(appOpts.Get(server.FlagTrace))),
 			baseapp.SetIndexEvents(cast.ToStringSlice(appOpts.Get(server.FlagIndexEvents))),
 			baseapp.SetSnapshot(snapshotStore, snapshotOptions),
+			baseapp.SetChainID(chainID),
 		)
 	}
 }
