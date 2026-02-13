@@ -13,6 +13,15 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 )
 
+const (
+	bech32PrefixAccAddr  = "meme"
+	bech32PrefixAccPub   = bech32PrefixAccAddr + sdk.PrefixPublic
+	bech32PrefixValAddr  = bech32PrefixAccAddr + sdk.PrefixValidator + sdk.PrefixOperator
+	bech32PrefixValPub   = bech32PrefixAccAddr + sdk.PrefixValidator + sdk.PrefixOperator + sdk.PrefixPublic
+	bech32PrefixConsAddr = bech32PrefixAccAddr + sdk.PrefixValidator + sdk.PrefixConsensus
+	bech32PrefixConsPub  = bech32PrefixAccAddr + sdk.PrefixValidator + sdk.PrefixConsensus + sdk.PrefixPublic
+)
+
 // MakeEncodingConfig creates an EncodingConfig with proper address codecs for SDK 0.50.
 // The InterfaceRegistry is initialized with address codecs to enable transaction signing.
 func MakeEncodingConfig() EncodingConfig {
@@ -20,6 +29,9 @@ func MakeEncodingConfig() EncodingConfig {
 	
 	// Get SDK config for Bech32 prefixes
 	cfg := sdk.GetConfig()
+	cfg.SetBech32PrefixForAccount(bech32PrefixAccAddr, bech32PrefixAccPub)
+	cfg.SetBech32PrefixForValidator(bech32PrefixValAddr, bech32PrefixValPub)
+	cfg.SetBech32PrefixForConsensusNode(bech32PrefixConsAddr, bech32PrefixConsPub)
 	
 	// Create address codecs
 	accCodec := addresscodec.NewBech32Codec(cfg.GetBech32AccountAddrPrefix())
