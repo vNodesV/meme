@@ -1,4 +1,4 @@
-# MeMe Chain
+# MeMe Chain Upgrade, AI Project by vNodes[V]
 
 Cosmos SDK chain with CosmWasm smart contracts powering an NFT marketplace and art services platform. This repository tracks the SDK v0.50.14 migration and the wasmvm v2.2.1 upgrade path.
 
