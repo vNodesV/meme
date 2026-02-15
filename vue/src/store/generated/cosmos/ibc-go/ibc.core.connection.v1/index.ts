@@ -79,6 +79,10 @@ export default {
 			Object.assign(state, getDefaultState())
 		},
 		QUERY(state, { query, key, value }) {
+			// Prevent prototype pollution via malicious query keys
+			if (query === '__proto__' || query === 'constructor' || query === 'prototype') {
+				return
+			}
 			state[query][JSON.stringify(key)] = value
 		},
 		SUBSCRIBE(state, subscription) {
