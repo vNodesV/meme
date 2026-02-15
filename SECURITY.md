@@ -1,29 +1,62 @@
-# Security & Vulnerability Management
+# Security Policy
 
-This repository uses layered checks to reduce supply-chain and dependency risk.
+This repository follows a layered security approach for dependencies, build integrity, and chain operations.
 
-## govulncheck
+## Reporting Vulnerabilities
 
-CI runs `govulncheck ./...` on every push and PR. For local runs:
+If you discover a security issue, **do not open a public issue**. Instead, contact the maintainers through a private channel agreed by the team. Include:
+
+- A clear description of the issue
+- Affected version/commit (if known)
+- Steps to reproduce
+- Impact assessment
+
+## Dependency & Supply-Chain Checks
+
+### govulncheck
+
+Run locally before releases:
 
 ```bash
 go install golang.org/x/vuln/cmd/govulncheck@latest
 govulncheck ./...
 ```
 
-### Mitigation workflow
+**Mitigation workflow:**
 
-1. **Confirm reachability**: `govulncheck` reports whether a vulnerable function is reachable. If it is not reachable, document the rationale and track for upgrade.
-2. **Upgrade path**: Prefer upgrading the affected module to a fixed version in `go.mod`.
-3. **Compensating controls**: If an upgrade is blocked, add tests or guardrails around the affected code path and document why the risk is acceptable.
-4. **Follow-up**: Add a ticket to remove the workaround once the upstream fix is available.
+1. **Confirm reachability** — If a vulnerable function is not reachable, document the rationale.
+2. **Upgrade path** — Prefer upgrading the affected module in `go.mod`.
+3. **Compensating controls** — Add guardrails/tests if upgrade is blocked.
+4. **Follow-up** — Track and remove workarounds when upstream fixes land.
 
-## SBOM guidance
+### SBOM
 
-Generate an SBOM for release artifacts using `syft` or `cosign`:
+Generate an SBOM for releases:
 
 ```bash
 syft packages dir:. -o spdx-json > sbom.spdx.json
 ```
 
-Publish the SBOM alongside release artifacts.
+Publish SBOMs alongside release artifacts.
+
+## Secrets & Keys
+
+- **Never** commit private keys, mnemonics, or validator keys.
+- Keep `priv_validator_key.json` and keyring data outside git.
+- Use environment variables or secret managers for credentials.
+
+## Build & Release Hardening
+
+- Prefer pinned Go toolchains (see `go.mod` toolchain version).
+- Use reproducible builds where possible.
+- For containers, use pinned base images and non-root runtime users.
+
+## Operational Security
+
+- Follow staged upgrade rehearsals (see `UPGRADE.md`).
+- Validate wasm contract invariants before/after upgrades.
+- Monitor consensus and IBC logs during upgrades.
+
+## Attribution
+
+- Consolidation and edits: [CP]
