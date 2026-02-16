@@ -11,16 +11,16 @@ require (
 	cosmossdk.io/errors v1.0.2
 	cosmossdk.io/log v1.6.1
 	cosmossdk.io/math v1.5.3
-	cosmossdk.io/store v1.1.1
+	cosmossdk.io/store v1.1.2
 	cosmossdk.io/x/evidence v0.1.1
 	cosmossdk.io/x/feegrant v0.1.1
 	cosmossdk.io/x/tx v0.14.0
-	cosmossdk.io/x/upgrade v0.1.4
+	cosmossdk.io/x/upgrade v0.2.0
 	github.com/CosmWasm/wasmvm/v2 v2.2.1
 	github.com/cometbft/cometbft v0.38.19
 	github.com/cometbft/cometbft-db v0.14.1
 	github.com/cosmos/cosmos-db v1.1.3
-	github.com/cosmos/cosmos-sdk v0.50.14
+	github.com/cosmos/cosmos-sdk v0.53.0
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/cosmos/iavl v1.2.2
 	github.com/cosmos/ibc-go/modules/capability v1.0.1
