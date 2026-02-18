@@ -24,7 +24,7 @@ require (
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/cosmos/iavl v1.2.2
 	github.com/cosmos/ibc-go/modules/capability v1.0.1
-	github.com/cosmos/ibc-go/v8 v8.7.0
+	github.com/cosmos/ibc-go/v8 v8.8.0
 	github.com/dvsekhvalnov/jose2go v1.7.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.4
