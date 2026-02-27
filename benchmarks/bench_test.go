@@ -8,9 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 
-	dbm "github.com/cometbft/cometbft-db"
+	dbm "github.com/cosmos/cosmos-db"
 	abci "github.com/cometbft/cometbft/abci/types"
-	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -103,21 +102,22 @@ func BenchmarkTxSending(b *testing.B) {
 			b.ResetTimer()
 
 			for i := 0; i < b.N/blockSize; i++ {
-				appInfo.App.BeginBlock(abci.RequestBeginBlock{Header: tmproto.Header{Height: height, Time: time.Now()}})
-
+				txBzs := make([][]byte, blockSize)
 				for j := 0; j < blockSize; j++ {
 					idx := i*blockSize + j
-
-					_, _, err := appInfo.App.Check(txEncoder, txs[idx])
-					if err != nil {
-						panic("something is broken in checking transaction")
-					}
-					_, _, err = appInfo.App.Deliver(txEncoder, txs[idx])
+					txBz, err := txEncoder(txs[idx])
 					require.NoError(b, err)
+					txBzs[j] = txBz
 				}
 
-				appInfo.App.EndBlock(abci.RequestEndBlock{Height: height})
-				appInfo.App.Commit()
+				_, err := appInfo.App.FinalizeBlock(&abci.RequestFinalizeBlock{
+					Height: height,
+					Time:   time.Now(),
+					Txs:    txBzs,
+				})
+				require.NoError(b, err)
+				_, err = appInfo.App.Commit()
+				require.NoError(b, err)
 				height++
 			}
 		})

@@ -10,6 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	cmttypes "github.com/cometbft/cometbft/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	sims "github.com/cosmos/cosmos-sdk/testutil/sims"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	"github.com/CosmWasm/wasmd/x/wasm"
 )
@@ -25,15 +31,32 @@ func (EmptyAppOptions) Get(string) interface{} { return nil }
 func TestWasmdExport(t *testing.T) {
 	db, err := dbm.NewDB("test", dbm.MemDBBackend, "")
 	require.NoError(t, err)
-	gapp := NewWasmApp(log.NewNopLogger(), db, nil, true, map[int64]bool{}, DefaultNodeHome, 0, MakeEncodingConfig(), wasm.EnableAllProposals, EmptyAppOptions{}, emptyWasmOpts)
+	gapp := NewWasmApp(log.NewNopLogger(), db, nil, true, map[int64]bool{}, t.TempDir(), 0, MakeEncodingConfig(), wasm.EnableAllProposals, EmptyAppOptions{}, emptyWasmOpts)
 
+	// Build a genesis state that includes a validator so InitChain succeeds.
+	valSet, err := sims.CreateRandomValidatorSet()
+	require.NoError(t, err)
+	minterAddr := sdk.AccAddress("test_minter_address__")
+	genAccs := []authtypes.GenesisAccount{authtypes.NewBaseAccountWithAddress(minterAddr)}
 	genesisState := NewDefaultGenesisState()
+	genesisState, err = sims.GenesisStateWithValSet(
+		MakeEncodingConfig().Marshaler,
+		genesisState,
+		valSet,
+		genAccs,
+		banktypes.Balance{
+			Address: minterAddr.String(),
+			Coins:   sdk.NewCoins(sdk.NewInt64Coin("stake", 1_000_000_000)),
+		},
+	)
+	require.NoError(t, err)
+
 	stateBytes, err := json.MarshalIndent(genesisState, "", "  ")
 	require.NoError(t, err)
 
 	// Initialize the chain
 	_, err = gapp.InitChain(&abci.RequestInitChain{
-		Validators:    []abci.ValidatorUpdate{},
+		Validators:    cmttypes.TM2PB.ValidatorUpdates(valSet),
 		AppStateBytes: stateBytes,
 	})
 	require.NoError(t, err)
@@ -45,7 +68,7 @@ func TestWasmdExport(t *testing.T) {
 	require.NoError(t, err)
 
 	// Making a new app object with the db, so that initchain hasn't been called
-	newGapp := NewWasmApp(log.NewNopLogger(), db, nil, true, map[int64]bool{}, DefaultNodeHome, 0, MakeEncodingConfig(), wasm.EnableAllProposals, EmptyAppOptions{}, emptyWasmOpts)
+	newGapp := NewWasmApp(log.NewNopLogger(), db, nil, true, map[int64]bool{}, t.TempDir(), 0, MakeEncodingConfig(), wasm.EnableAllProposals, EmptyAppOptions{}, emptyWasmOpts)
 	_, err = newGapp.ExportAppStateAndValidators(false, []string{})
 	require.NoError(t, err, "ExportAppStateAndValidators should not have an error")
 }
@@ -54,7 +77,7 @@ func TestWasmdExport(t *testing.T) {
 func TestBlockedAddrs(t *testing.T) {
 	db, err := dbm.NewDB("test", dbm.MemDBBackend, "")
 	require.NoError(t, err)
-	gapp := NewWasmApp(log.NewNopLogger(), db, nil, true, map[int64]bool{}, DefaultNodeHome, 0, MakeEncodingConfig(), wasm.EnableAllProposals, EmptyAppOptions{}, emptyWasmOpts)
+	gapp := NewWasmApp(log.NewNopLogger(), db, nil, true, map[int64]bool{}, t.TempDir(), 0, MakeEncodingConfig(), wasm.EnableAllProposals, EmptyAppOptions{}, emptyWasmOpts)
 
 	for acc := range maccPerms {
 		t.Run(acc, func(t *testing.T) {
