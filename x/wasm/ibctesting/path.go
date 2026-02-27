@@ -1,3 +1,5 @@
+//go:build ibctesting
+
 package ibctesting
 
 import (
