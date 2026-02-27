@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"cosmossdk.io/math"
+	wasmvm "github.com/CosmWasm/wasmvm/v2"
 	wasmvmtypes "github.com/CosmWasm/wasmvm/v2/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -350,9 +351,19 @@ func TestBurnCoinMessageHandlerIntegration(t *testing.T) {
 	for name, spec := range specs {
 		t.Run(name, func(t *testing.T) {
 			ctx, _ = parentCtx.CacheContext()
-			// NOTE: In wasmvm v2, keeper.wasmVM is concrete *wasmvm.VM. Mock assignment
-			// requires wasmvm v2 migration. Using default VM instead.
-			// k.wasmVM = &wasmtesting.MockWasmer{...}
+			// Set up a mock wasmVM that returns the BurnMsg in the Execute response.
+			// This tests the full handler chain without needing the contract to implement
+			// a specific execute handler.
+			k.SetWasmEngine(&wasmtesting.MockWasmer{
+				ExecuteFn: func(codeID wasmvm.Checksum, env wasmvmtypes.Env, info wasmvmtypes.MessageInfo, executeMsg []byte, store wasmvm.KVStore, goapi wasmvm.GoAPI, querier wasmvm.Querier, gasMeter wasmvm.GasMeter, gasLimit uint64, deserCost wasmvmtypes.UFraction) (*wasmvmtypes.ContractResult, uint64, error) {
+					return &wasmvmtypes.ContractResult{Ok: &wasmvmtypes.Response{
+						Messages: []wasmvmtypes.SubMsg{{
+							ReplyOn: wasmvmtypes.ReplyNever,
+							Msg:     wasmvmtypes.CosmosMsg{Bank: &wasmvmtypes.BankMsg{Burn: &spec.msg}},
+						}},
+					}}, 0, nil
+				},
+			})
 
 			// when
 			_, err = k.execute(ctx, example.Contract, example.CreatorAddr, nil, nil)

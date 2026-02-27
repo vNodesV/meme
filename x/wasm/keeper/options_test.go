@@ -65,7 +65,7 @@ func TestConstructorOptions(t *testing.T) {
 	}
 	for name, spec := range specs {
 		t.Run(name, func(t *testing.T) {
-			k := NewKeeper(nil, nil, paramtypes.NewSubspace(nil, nil, nil, nil, ""), nil, nil, nil, nil, nil, nil, nil, nil, nil, "tempDir", types.DefaultWasmConfig(), SupportedFeatures, spec.srcOpt)
+			k := NewKeeper(nil, nil, paramtypes.NewSubspace(nil, nil, nil, nil, ""), nil, nil, nil, nil, nil, nil, nil, nil, nil, t.TempDir(), types.DefaultWasmConfig(), SupportedFeatures, spec.srcOpt)
 			spec.verify(t, k)
 		})
 	}

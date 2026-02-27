@@ -54,6 +54,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/params"
 	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
 	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
+	paramproposal "github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	"github.com/cosmos/cosmos-sdk/x/staking"
@@ -68,6 +69,7 @@ import (
 	channelkeeper "github.com/cosmos/ibc-go/v8/modules/core/04-channel/keeper"
 	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	portkeeper "github.com/cosmos/ibc-go/v8/modules/core/05-port/keeper"
+	ibchost "github.com/cosmos/ibc-go/v8/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
 	"github.com/stretchr/testify/require"
@@ -231,7 +233,8 @@ func (c testChannelKeeperAdapter) IterateChannels(ctx sdk.Context, cb func(chann
 
 // testPortKeeperAdapter adapts IBC port keeper to the wasmd PortKeeper interface
 type testPortKeeperAdapter struct {
-	ibcPortKeeper *portkeeper.Keeper
+	ibcPortKeeper    *portkeeper.Keeper
+	scopedWasmKeeper capabilitykeeper.ScopedKeeper
 }
 
 func (p testPortKeeperAdapter) BindPort(ctx sdk.Context, portID string) error {
@@ -239,7 +242,8 @@ func (p testPortKeeperAdapter) BindPort(ctx sdk.Context, portID string) error {
 	if cap == nil {
 		return fmt.Errorf("failed to bind port %s", portID)
 	}
-	return nil
+	// Claim the capability for the wasm module so LookupModuleByPort returns ["ibc", "wasm"]
+	return p.scopedWasmKeeper.ClaimCapability(ctx, cap, ibchost.PortPath(portID))
 }
 
 var ModuleBasics = module.NewBasicManager(
@@ -479,6 +483,7 @@ func createTestInput(
 		consAddrCodec,
 	)
 	require.NoError(t, stakingKeeper.SetParams(ctx, TestingStakeParams))
+	require.NoError(t, bankKeeper.SetParams(ctx, banktypes.DefaultParams()))
 
 	distKeeper := distributionkeeper.NewKeeper(
 		appCodec,
@@ -517,6 +522,7 @@ func createTestInput(
 		memKeys[capabilitytypes.MemStoreKey],
 	)
 	scopedIBCKeeper := capabilityKeeper.ScopeToModule(ibcexported.ModuleName)
+	scopedWasmKeeper := capabilityKeeper.ScopeToModule(types.ModuleName)
 	capabilityKeeper.Seal()
 
 	ibcKeeper := ibckeeper.NewKeeper(
@@ -545,7 +551,7 @@ func createTestInput(
 
 	// Create IBC adapters for wasm keeper
 	channelKeeperAdapter := testChannelKeeperAdapter{ibcChannelKeeper: ibcKeeper.ChannelKeeper}
-	portKeeperAdapter := testPortKeeperAdapter{ibcPortKeeper: ibcKeeper.PortKeeper}
+	portKeeperAdapter := testPortKeeperAdapter{ibcPortKeeper: ibcKeeper.PortKeeper, scopedWasmKeeper: scopedWasmKeeper}
 
 	keeper := NewKeeper(
 		appCodec,
@@ -575,11 +581,12 @@ func createTestInput(
 		distribution.NewAppModule(appCodec, distKeeper, accountKeeper, bankKeeper, stakingKeeper, subspace(distributiontypes.ModuleName)),
 	)
 	am.RegisterServices(module.NewConfigurator(appCodec, msgRouter, querier))
-	types.RegisterMsgServer(msgRouter, NewMsgServerImpl(NewDefaultPermissionKeeper(keeper)))
+	types.RegisterMsgServer(msgRouter, NewMsgServerImpl(NewDefaultPermissionKeeper(&keeper)))
 	types.RegisterQueryServer(querier, NewGrpcQuerier(appCodec, keys[types.ModuleName], keeper, keeper.queryGasLimit))
 
 	govRouter := govv1beta1.NewRouter().
 		AddRoute(govtypes.RouterKey, govv1beta1.ProposalHandler).
+		AddRoute(paramproposal.RouterKey, params.NewParamChangeProposalHandler(paramsKeeper)).
 		AddRoute(types.RouterKey, NewWasmProposalHandler(&keeper, types.EnableAllProposals))
 
 	govConfig := govtypes.DefaultConfig()
@@ -691,9 +698,12 @@ func StoreRandomContract(t testing.TB, ctx sdk.Context, keepers TestKeepers, moc
 	anyAmount := sdk.NewCoins(sdk.NewInt64Coin("denom", 1000))
 	creator, _, creatorAddr := keyPubAddr()
 	fundAccounts(t, ctx, keepers.AccountKeeper, keepers.BankKeeper, creatorAddr, anyAmount)
-	// NOTE: In wasmvm v2, keeper.wasmVM is concrete *wasmvm.VM and cannot accept
-	// mock WasmerEngine interfaces. Mock-based tests require wasmvm v2 migration.
-	// For now, the keeper retains its default VM.
+	// Ensure mock has a StoreCode function (needed for Create); don't override if already set
+	if m, ok := mock.(*wasmtesting.MockWasmer); ok && m.StoreCodeFn == nil {
+		m.StoreCodeFn = wasmtesting.HashOnlyStoreCodeFn
+	}
+	// Set the mock engine so the random (invalid) wasm bytes are accepted
+	keepers.WasmKeeper.SetWasmEngine(mock)
 	wasmCode := append(wasmIdent, rand.Bytes(10)...) //nolint:gocritic
 	codeID, err := keepers.ContractKeeper.Create(ctx, creatorAddr, wasmCode, nil)
 	require.NoError(t, err)

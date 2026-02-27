@@ -61,6 +61,11 @@ func (a *AccessType) UnmarshalText(text []byte) error {
 			return nil
 		}
 	}
+	// Also accept proto-registered enum names (e.g. "ACCESS_TYPE_NOBODY")
+	if v, ok := AccessType_value[string(text)]; ok {
+		*a = AccessType(v)
+		return nil
+	}
 	*a = AccessTypeUnspecified
 	return nil
 }
@@ -68,8 +73,19 @@ func (a AccessType) MarshalText() ([]byte, error) {
 	return []byte(a.String()), nil
 }
 
+// MarshalJSON emits the proto-registered enum name (e.g. "ACCESS_TYPE_EVERYBODY")
+// so that gogoproto/jsonpb can round-trip the value via proto.EnumValueMap lookup.
+// AccessType.String() returns human-readable names ("Everybody") which jsonpb
+// cannot unmarshal because it only searches the AccessType_value map.
+func (a AccessType) MarshalJSON() ([]byte, error) {
+	if s, ok := AccessType_name[int32(a)]; ok {
+		return json.Marshal(s)
+	}
+	return json.Marshal(int32(a))
+}
+
 func (a *AccessType) MarshalJSONPB(_ *jsonpb.Marshaler) ([]byte, error) {
-	return json.Marshal(a)
+	return a.MarshalJSON()
 }
 
 func (a *AccessType) UnmarshalJSONPB(_ *jsonpb.Unmarshaler, data []byte) error {

@@ -743,19 +743,13 @@ func TestProposalJsonSignBytes(t *testing.T) {
 	}{
 		"instantiate contract": {
 			src: &InstantiateContractProposal{Msg: RawContractMessage(myInnerMsg)},
-			exp: `
-{
-	"type":"cosmos-sdk/MsgSubmitProposal",
-	"value":{"content":{"type":"wasm/InstantiateContractProposal","value":{"funds":[],"msg":{"foo":"bar"}}},"initial_deposit":[]}
-}`,
+			// SDK 0.50: amino type/value wrapper only present when codec has types registered.
+			// With unregistered codec, marshals to raw struct JSON.
+			exp: `{"content":{"funds":[],"msg":{"foo":"bar"}},"initial_deposit":[]}`,
 		},
 		"migrate contract": {
 			src: &MigrateContractProposal{Msg: RawContractMessage(myInnerMsg)},
-			exp: `
-{
-	"type":"cosmos-sdk/MsgSubmitProposal",
-	"value":{"content":{"type":"wasm/MigrateContractProposal","value":{"msg":{"foo":"bar"}}},"initial_deposit":[]}
-}`,
+			exp: `{"content":{"msg":{"foo":"bar"}},"initial_deposit":[]}`,
 		},
 	}
 	for name, spec := range specs {

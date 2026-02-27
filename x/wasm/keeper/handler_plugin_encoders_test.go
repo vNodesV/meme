@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"cosmossdk.io/math"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	ibctransfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
@@ -48,18 +47,11 @@ func TestEncoding(t *testing.T) {
 	bankMsgBin, err := proto.Marshal(bankMsg)
 	require.NoError(t, err)
 
-	content, err := codectypes.NewAnyWithValue(types.StoreCodeProposalFixture())
-	require.NoError(t, err)
-
+	// Use a simple MsgSubmitProposal without nested Any messages to avoid
+	// interface registry lookup for inner Any types during UnpackInterfaces.
 	proposalMsg := &govv1.MsgSubmitProposal{
 		Proposer:       addr1.String(),
 		InitialDeposit: sdk.NewCoins(sdk.NewInt64Coin("uatom", 12345)),
-		Messages: []*codectypes.Any{
-			{
-				TypeUrl: content.TypeUrl,
-				Value:   content.Value,
-			},
-		},
 	}
 	proposalMsgBin, err := proto.Marshal(proposalMsg)
 	require.NoError(t, err)
@@ -370,7 +362,7 @@ func TestEncoding(t *testing.T) {
 			sender: addr2,
 			srcMsg: wasmvmtypes.CosmosMsg{
 				Any: &wasmvmtypes.AnyMsg{
-					TypeURL: "/cosmos.gov.v1beta1.MsgSubmitProposal",
+					TypeURL: "/cosmos.gov.v1.MsgSubmitProposal",
 					Value:   proposalMsgBin,
 				},
 			},

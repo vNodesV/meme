@@ -81,10 +81,24 @@ func (h SDKMessageHandler) DispatchMsg(ctx sdk.Context, contractAddr sdk.AccAddr
 }
 
 func (h SDKMessageHandler) handleSdkMessage(ctx sdk.Context, contractAddr sdk.Address, msg sdk.Msg) (*sdk.Result, error) {
-	// Note: In SDK v0.50+, ValidateBasic and GetSigners were removed from Msg interface
-	// Message validation and authorization are now handled by the msg service router
-	// The permission check that was here has been removed as it's now done by the handler
-	
+	// In SDK v0.50+, ValidateBasic is optional via the HasValidateBasic interface.
+	if m, ok := msg.(sdk.HasValidateBasic); ok {
+		if err := m.ValidateBasic(); err != nil {
+			return nil, errors.Wrap(types.ErrInvalid, err.Error())
+		}
+	}
+	// Make sure this account can send it — messages dispatched by a contract
+	// must be signed by the contract itself.
+	type hasGetSigners interface {
+		GetSigners() []sdk.AccAddress
+	}
+	if sigMsg, ok := msg.(hasGetSigners); ok {
+		for _, acct := range sigMsg.GetSigners() {
+			if !acct.Equals(contractAddr) {
+				return nil, errors.Wrap(sdkerrors.ErrUnauthorized, "contract doesn't have permission")
+			}
+		}
+	}
 	// find the handler and execute it
 	if handler := h.router.Handler(msg); handler != nil {
 		// ADR 031 request type routing

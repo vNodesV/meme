@@ -21,6 +21,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	wasmvm "github.com/CosmWasm/wasmvm/v2"
+	wasmvmtypes "github.com/CosmWasm/wasmvm/v2/types"
+
+	"github.com/CosmWasm/wasmd/x/wasm/keeper/wasmtesting"
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 )
 
@@ -183,9 +187,12 @@ func TestQuerySmartContractPanics(t *testing.T) {
 	}
 	for msg, spec := range specs {
 		t.Run(msg, func(t *testing.T) {
-			// NOTE: In wasmvm v2, keeper.wasmVM is concrete *wasmvm.VM. Mock assignment
-			// requires wasmvm v2 migration. Using default VM instead.
-			// keepers.WasmKeeper.wasmVM = &wasmtesting.MockWasmer{...}
+			keepers.WasmKeeper.SetWasmEngine(&wasmtesting.MockWasmer{
+				QueryFn: func(codeID wasmvm.Checksum, env wasmvmtypes.Env, queryMsg []byte, store wasmvm.KVStore, goapi wasmvm.GoAPI, querier wasmvm.Querier, gasMeter wasmvm.GasMeter, gasLimit uint64, deserCost wasmvmtypes.UFraction) (*wasmvmtypes.QueryResult, uint64, error) {
+					spec.doInContract()
+					return nil, 0, nil
+				},
+			})
 			// when
 			q := Querier(keepers.WasmKeeper)
 			got, err := q.SmartContractState(sdk.WrapSDKContext(ctx), &types.QuerySmartContractStateRequest{

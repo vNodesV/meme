@@ -124,11 +124,12 @@ func TestAccessTypeMarshalJson(t *testing.T) {
 		src AccessType
 		exp string
 	}{
-		"Unspecified": {src: AccessTypeUnspecified, exp: `"Unspecified"`},
-		"Nobody":      {src: AccessTypeNobody, exp: `"Nobody"`},
-		"OnlyAddress": {src: AccessTypeOnlyAddress, exp: `"OnlyAddress"`},
-		"Everybody":   {src: AccessTypeEverybody, exp: `"Everybody"`},
-		"unknown":     {src: 999, exp: `"Unspecified"`},
+		// MarshalJSON now emits proto-registered names for jsonpb round-trip compatibility
+		"Unspecified": {src: AccessTypeUnspecified, exp: `"ACCESS_TYPE_UNSPECIFIED"`},
+		"Nobody":      {src: AccessTypeNobody, exp: `"ACCESS_TYPE_NOBODY"`},
+		"OnlyAddress": {src: AccessTypeOnlyAddress, exp: `"ACCESS_TYPE_ONLY_ADDRESS"`},
+		"Everybody":   {src: AccessTypeEverybody, exp: `"ACCESS_TYPE_EVERYBODY"`},
+		"unknown":     {src: 999, exp: `999`}, // unknown values marshal as integer
 	}
 	for msg, spec := range specs {
 		t.Run(msg, func(t *testing.T) {
@@ -166,8 +167,8 @@ func TestParamsUnmarshalJson(t *testing.T) {
 	}{
 
 		"defaults": {
-			src: `{"code_upload_access": {"permission": "Everybody"},
-				"instantiate_default_permission": "Everybody",
+			src: `{"code_upload_access": {"permission": "ACCESS_TYPE_EVERYBODY"},
+				"instantiate_default_permission": "ACCESS_TYPE_EVERYBODY",
 				"max_wasm_code_size": 1228800}`,
 			exp: DefaultParams(),
 		},

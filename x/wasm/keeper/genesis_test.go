@@ -460,9 +460,9 @@ func TestImportContractWithCodeHistoryReset(t *testing.T) {
 {
 	"params":{
 		"code_upload_access": {
-			"permission": "Everybody"
+			"permission": "ACCESS_TYPE_EVERYBODY"
 		},
-		"instantiate_default_permission": "Everybody",
+		"instantiate_default_permission": "ACCESS_TYPE_EVERYBODY",
 		"max_wasm_code_size": 500000
 	},
   "codes": [
@@ -472,7 +472,7 @@ func TestImportContractWithCodeHistoryReset(t *testing.T) {
         "code_hash": %q,
         "creator": "cosmos1qtu5n0cnhfkjj6l2rq97hmky9fd89gwca9yarx",
         "instantiate_config": {
-          "permission": "OnlyAddress",
+          "permission": "ACCESS_TYPE_ONLY_ADDRESS",
           "address": "cosmos1qtu5n0cnhfkjj6l2rq97hmky9fd89gwca9yarx"
         }
       },
@@ -653,7 +653,7 @@ func setupKeeper(t *testing.T) (*Keeper, sdk.Context, []storetypes.StoreKey) {
 	ctx := sdk.NewContext(ms, tmproto.Header{
 		Height: 1234567,
 		Time:   time.Date(2020, time.April, 22, 12, 0, 0, 0, time.UTC),
-	}, false, cosmoslog.NewNopLogger())
+	}, false, cosmoslog.NewNopLogger()).WithGasMeter(storetypes.NewInfiniteGasMeter())
 
 	encodingConfig := MakeEncodingConfig(t)
 	// register an example extension. must be protobuf

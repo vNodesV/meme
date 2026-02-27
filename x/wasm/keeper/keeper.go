@@ -66,7 +66,7 @@ type Keeper struct {
 	accountKeeper         types.AccountKeeper
 	bank                  CoinTransferrer
 	portKeeper            types.PortKeeper
-	wasmVM                *wasmvm.VM // Use concrete type instead of interface for wasmvm v2 compatibility
+	wasmVM                types.WasmerEngine
 	wasmVMQueryHandler    WasmVMQueryHandler
 	wasmVMResponseHandler WasmVMResponseHandler
 	messenger             Messenger
@@ -105,7 +105,7 @@ func NewKeeper(
 			capabilities[i] = strings.TrimSpace(capabilities[i])
 		}
 	}
-	
+
 	// Initialize VM with wasmvm v2 config
 	wasmer, err := wasmvm.NewVM(
 		filepath.Join(homeDir, "wasm"),
@@ -141,6 +141,11 @@ func NewKeeper(
 	// not updateable, yet
 	keeper.wasmVMResponseHandler = NewDefaultWasmVMContractResponseHandler(NewMessageDispatcher(keeper.messenger, keeper))
 	return *keeper
+}
+
+// SetWasmEngine is for testing only - allows replacing the wasm VM with a mock.
+func (k *Keeper) SetWasmEngine(x types.WasmerEngine) {
+	k.wasmVM = x
 }
 
 func (k Keeper) getUploadAccessConfig(ctx sdk.Context) types.AccessConfig {
@@ -195,7 +200,7 @@ func (k Keeper) create(ctx sdk.Context, creator sdk.AccAddress, wasmCode []byte,
 	}
 	// Consume the gas used by the VM
 	k.consumeRuntimeGas(ctx, gasUsed)
-	
+
 	report, err := k.wasmVM.AnalyzeCode(checksum)
 	if err != nil {
 		return 0, errors.Wrap(types.ErrCreateFailed, err.Error())
@@ -232,7 +237,7 @@ func (k Keeper) importCode(ctx sdk.Context, codeID uint64, codeInfo types.CodeIn
 	if err != nil {
 		return errors.Wrap(types.ErrCreateFailed, err.Error())
 	}
-	
+
 	// In wasmvm v2, StoreCode requires a gas limit parameter
 	gasLimit := k.runtimeGasForContract(ctx)
 	newCodeHash, gasUsed, err := k.wasmVM.StoreCode(wasmCode, gasLimit)
@@ -241,7 +246,7 @@ func (k Keeper) importCode(ctx sdk.Context, codeID uint64, codeInfo types.CodeIn
 	}
 	// Consume the gas used by the VM
 	k.consumeRuntimeGas(ctx, gasUsed)
-	
+
 	if !bytes.Equal(codeInfo.CodeHash, newCodeHash) {
 		return errors.Wrap(types.ErrInvalid, "code hashes not same")
 	}
@@ -664,7 +669,6 @@ func (k Keeper) QuerySmart(ctx sdk.Context, contractAddr sdk.AccAddress, req []b
 	if qErr != nil {
 		return nil, errors.Wrap(types.ErrQueryFailed, qErr.Error())
 	}
-	// Handle query result from wasmvm v2
 	if queryResult.Err != "" {
 		return nil, errors.Wrap(types.ErrQueryFailed, queryResult.Err)
 	}
@@ -925,7 +929,7 @@ func (k Keeper) runtimeGasForContract(ctx sdk.Context) uint64 {
 	if meter.IsOutOfGas() {
 		return 0
 	}
-	if meter.Limit() == 0 { // infinite gas meter with limit=0 and not out of gas
+	if meter.Limit() == 0 || meter.Limit() == math.MaxUint64 { // infinite gas meter (standard: 0, cheqd fork: MaxUint64)
 		return math.MaxUint64
 	}
 	return k.gasRegister.ToWasmVMGas(meter.Limit() - meter.GasConsumedToLimit())

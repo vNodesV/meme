@@ -193,7 +193,7 @@ func TestReplyCost(t *testing.T) {
 			},
 			srcConfig: DefaultGasRegisterConfig(),
 			pinned:    true,
-			exp:       storetypes.Gas(3*DefaultEventAttributeDataCost + DefaultPerAttributeCost + DefaultContractMessageDataCost), // 3 == len("foo")
+			exp: storetypes.Gas(DefaultPerCustomEventCost + 2*3*DefaultEventAttributeDataCost + 2*DefaultPerAttributeCost + DefaultContractMessageDataCost), // 3==len("foo"), double-charged: outer+inner loop
 		},
 		"subcall response with events - pinned": {
 			src: wasmvmtypes.Reply{
@@ -207,7 +207,7 @@ func TestReplyCost(t *testing.T) {
 			},
 			srcConfig: DefaultGasRegisterConfig(),
 			pinned:    true,
-			exp:       storetypes.Gas(3*DefaultEventAttributeDataCost + DefaultPerAttributeCost), // 3 == len("foo")
+			exp:       storetypes.Gas(DefaultPerCustomEventCost + 2*3*DefaultEventAttributeDataCost + 2*DefaultPerAttributeCost), // 3==len("foo"), double-charged: outer+inner loop
 		},
 		"subcall response with events exceeds free tier- pinned": {
 			src: wasmvmtypes.Reply{
@@ -221,7 +221,7 @@ func TestReplyCost(t *testing.T) {
 			},
 			srcConfig: DefaultGasRegisterConfig(),
 			pinned:    true,
-			exp:       storetypes.Gas((3+6)*DefaultEventAttributeDataCost + DefaultPerAttributeCost), // 3 == len("foo"), 6 == len("myData")
+			exp:       storetypes.Gas(DefaultPerCustomEventCost + (2*3+6+DefaultEventAttributeDataFreeTier+6)*DefaultEventAttributeDataCost + 2*DefaultPerAttributeCost), // 3==len("foo"), 6==len("myData"); outer+inner type+excess+fullbytes
 		},
 		"subcall response error - pinned": {
 			src: wasmvmtypes.Reply{
@@ -245,7 +245,7 @@ func TestReplyCost(t *testing.T) {
 				},
 			},
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       storetypes.Gas(DefaultInstanceCost + 3*DefaultEventAttributeDataCost + DefaultPerAttributeCost + DefaultContractMessageDataCost),
+			exp:       storetypes.Gas(DefaultInstanceCost + DefaultPerCustomEventCost + 2*3*DefaultEventAttributeDataCost + 2*DefaultPerAttributeCost + DefaultContractMessageDataCost), // 3==len("foo"), double-charged: outer+inner loop
 		},
 		"subcall response with events - unpinned": {
 			src: wasmvmtypes.Reply{
@@ -258,7 +258,7 @@ func TestReplyCost(t *testing.T) {
 				},
 			},
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       storetypes.Gas(DefaultInstanceCost + 3*DefaultEventAttributeDataCost + DefaultPerAttributeCost),
+			exp:       storetypes.Gas(DefaultInstanceCost + DefaultPerCustomEventCost + 2*3*DefaultEventAttributeDataCost + 2*DefaultPerAttributeCost), // 3==len("foo"), double-charged: outer+inner loop
 		},
 		"subcall response with events exceeds free tier- unpinned": {
 			src: wasmvmtypes.Reply{
@@ -271,7 +271,7 @@ func TestReplyCost(t *testing.T) {
 				},
 			},
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       storetypes.Gas(DefaultInstanceCost + (3+6)*DefaultEventAttributeDataCost + DefaultPerAttributeCost), // 3 == len("foo"), 6 == len("myData")
+			exp:       storetypes.Gas(DefaultInstanceCost + DefaultPerCustomEventCost + (2*3+6+DefaultEventAttributeDataFreeTier+6)*DefaultEventAttributeDataCost + 2*DefaultPerAttributeCost), // 3==len("foo"), 6==len("myData"); outer+inner type+excess+fullbytes
 		},
 		"subcall response error - unpinned": {
 			src: wasmvmtypes.Reply{

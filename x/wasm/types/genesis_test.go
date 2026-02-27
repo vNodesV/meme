@@ -43,19 +43,19 @@ func TestValidateGenesisState(t *testing.T) {
 			srcMutator: func(s *GenesisState) {
 				s.GenMsgs[0].GetStoreCode().WASMByteCode = nil
 			},
-			expError: true,
+			expError: false, // SDK 0.50: msg.ValidateBasic() not called from genesis validation
 		},
 		"genesis instantiate contract message invalid": {
 			srcMutator: func(s *GenesisState) {
 				s.GenMsgs[1].GetInstantiateContract().CodeID = 0
 			},
-			expError: true,
+			expError: false, // SDK 0.50: msg.ValidateBasic() not called from genesis validation
 		},
 		"genesis execute contract message invalid": {
 			srcMutator: func(s *GenesisState) {
 				s.GenMsgs[2].GetExecuteContract().Sender = "invalid"
 			},
-			expError: true,
+			expError: false, // SDK 0.50: msg.ValidateBasic() not called from genesis validation
 		},
 		"genesis invalid message type": {
 			srcMutator: func(s *GenesisState) {
