@@ -40,7 +40,8 @@ func (app *WasmApp) RegisterUpgradeHandlers() {
 			// Get the consensus params from the legacy subspace and explicitly
 			// set them in the new consensus keeper. This ensures all params
 			// including BlockParams are properly registered and accessible.
-			if cp := baseapp.GetConsensusParams(sdkCtx, baseAppLegacySS); cp != nil {
+			cp := baseapp.GetConsensusParams(sdkCtx, baseAppLegacySS)
+			if cp != nil && cp.Block != nil {
 				if err := app.consensusKeeper.ParamsStore.Set(sdkCtx, *cp); err != nil {
 					return nil, err
 				}

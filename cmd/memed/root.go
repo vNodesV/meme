@@ -147,7 +147,6 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 func initRootCmd(rootCmd *cobra.Command, encodingConfig params.EncodingConfig) {
 	// Create address codecs
 	cfg := sdk.GetConfig()
-	accountAddressCodec := addresscodec.NewBech32Codec(cfg.GetBech32AccountAddrPrefix())
 	validatorAddressCodec := addresscodec.NewBech32Codec(cfg.GetBech32ValidatorAddrPrefix())
 
 	// Get basic manager for CLI commands
@@ -158,7 +157,7 @@ func initRootCmd(rootCmd *cobra.Command, encodingConfig params.EncodingConfig) {
 	rootCmd.AddCommand(
 		genutilcli.InitCmd(basicManager, app.DefaultNodeHome),
 		genutilcli.CollectGenTxsCmd(banktypes.GenesisBalancesIterator{}, app.DefaultNodeHome, genutiltypes.DefaultMessageValidator, validatorAddressCodec),
-		genutilcli.GenTxCmd(basicManager, encodingConfig.TxConfig, banktypes.GenesisBalancesIterator{}, app.DefaultNodeHome, accountAddressCodec),
+		genutilcli.GenTxCmd(basicManager, encodingConfig.TxConfig, banktypes.GenesisBalancesIterator{}, app.DefaultNodeHome, validatorAddressCodec),
 		genutilcli.ValidateGenesisCmd(basicManager),
 		AddGenesisAccountCmd(app.DefaultNodeHome),
 		AddGenesisWasmMsgCmd(app.DefaultNodeHome),
