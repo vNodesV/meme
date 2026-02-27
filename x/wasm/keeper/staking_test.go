@@ -659,11 +659,12 @@ func TestQueryStakingPlugin(t *testing.T) {
 
 // adds a few validators and returns a list of validators that are registered
 func addValidator(t *testing.T, ctx sdk.Context, stakingKeeper stakingkeeper.Keeper, faucet *TestFaucet, value sdk.Coin) sdk.ValAddress {
-	owner := faucet.NewFundedAccount(ctx, value)
-
 	privKey := secp256k1.GenPrivKey()
 	pubKey := privKey.PubKey()
 	addr := sdk.ValAddress(pubKey.Address())
+
+	// In SDK 0.50, CreateValidator delegates from sdk.AccAddress(valAddr), not DelegatorAddress.
+	faucet.Fund(ctx, sdk.AccAddress(addr), value)
 
 	pkAny, err := codectypes.NewAnyWithValue(pubKey)
 	require.NoError(t, err)
@@ -677,7 +678,7 @@ func addValidator(t *testing.T, ctx sdk.Context, stakingKeeper stakingkeeper.Kee
 			MaxChangeRate: math.LegacyMustNewDecFromStr("0.01"),
 		},
 		MinSelfDelegation: math.OneInt(),
-		DelegatorAddress:  owner.String(),
+		DelegatorAddress:  sdk.AccAddress(addr).String(),
 		ValidatorAddress:  addr.String(),
 		Pubkey:            pkAny,
 		Value:             value,
