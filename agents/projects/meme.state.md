@@ -72,9 +72,9 @@ meme/
 
 | Priority | Area | Status | Notes |
 |----------|------|--------|-------|
-| P0 | Build + unit tests | 🔄 Not yet verified in this session | `go build ./...` + `go test ./...` |
-| P0 | Devnet upgrade rehearsal | 🔄 Pending | Single-node first; submit `sdk50` proposal |
-| P1 | wasmvm v2 completion | ⚠️ 5 issues remain (surgical) | **Recommended: rebase on wasmd v0.54.x** |
+| P0 | Build + unit tests | ✅ DONE | `go build ./...` + `go test ./...` |
+| P0 | Devnet upgrade rehearsal | ✅ DONE | Single-node first; submit `sdk50` proposal |
+| P1 | wasmvm v2 completion | ✅ DONE (surgical fixes applied) | **Recommended: rebase on wasmd v0.54.x** |
 | P2 | CI/CD + security | 🔄 Pending | `govulncheck`, SBOM, multi-arch build |
 | P3 | Documentation | 🔄 Ongoing | Upgrade rehearsal results → `MIGRATION.md` |
 
