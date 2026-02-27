@@ -1,8 +1,7 @@
 use cosmwasm_std::{Binary, Uint128};
-use cw721::{Expiration, NftInfoResponse};
-use cw721_base::{
-    msg::ExecuteMsg as CW721ExecuteMsg, MintMsg as CW721MintMsg, QueryMsg as CW721QueryMsg,
-};
+use cw721::NftInfoResponse;
+use cw721_base::{msg::ExecuteMsg as CW721ExecuteMsg, QueryMsg as CW721QueryMsg};
+use cw_utils::Expiration;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -93,7 +92,13 @@ pub struct Metadata {
 
 pub type Extension = Metadata;
 
-pub type MintMsg = CW721MintMsg<Extension>;
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+pub struct MintMsg {
+    pub token_id: String,
+    pub owner: String,
+    pub token_uri: Option<String>,
+    pub extension: Extension,
+}
 
 pub type MemeArtNftInfoResponse = NftInfoResponse<Extension>;
 

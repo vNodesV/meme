@@ -94,6 +94,7 @@ import (
 
 	wasmappparams "github.com/CosmWasm/wasmd/app/params"
 	"github.com/CosmWasm/wasmd/x/wasm"
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 )
 
 // MEME APP Start ... You like it!
@@ -839,7 +840,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	ibcKeyTable := ibcclienttypes.ParamKeyTable()                                                     //nolint:staticcheck // needed for IBC client migration
 	ibcKeyTable.RegisterParamSet(&ibcconnectiontypes.Params{})                                        //nolint:staticcheck // needed for IBC connection migration
 	paramsKeeper.Subspace(IBCStoreKey).WithKeyTable(ibcKeyTable)
-	paramsKeeper.Subspace(wasm.ModuleName)
+	paramsKeeper.Subspace(wasm.ModuleName).WithKeyTable(wasmtypes.ParamKeyTable()) //nolint:staticcheck // needed for wasm migration
 	paramsKeeper.Subspace(baseapp.Paramspace).WithKeyTable(paramstypes.ConsensusParamsKeyTable())
 
 	return paramsKeeper
