@@ -21,7 +21,7 @@ Cosmos SDK chain with CosmWasm smart contracts powering an NFT marketplace and a
 ## Quick Start (Dev)
 
 go1.24.12+ is required.
-1. git pull origin main && git checkout v2.0.0-vNodesAI
+1. git pull origin main && git checkout v2.1.0
 2. make install
 3. memed init <moniker> --chain-id meme-offline-0
 4. Download devnet genesis: `curl -o ~/.memed/config/genesis.json https://raw.githubusercontent.com/memecoin/meme/main/devnet/genesis.json`
