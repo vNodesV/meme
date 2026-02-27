@@ -3,8 +3,9 @@ package keeper
 import (
 	"testing"
 
+	"cosmossdk.io/math"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	ibctransfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
@@ -50,10 +51,15 @@ func TestEncoding(t *testing.T) {
 	content, err := codectypes.NewAnyWithValue(types.StoreCodeProposalFixture())
 	require.NoError(t, err)
 
-	proposalMsg := &govtypes.MsgSubmitProposal{
+	proposalMsg := &govv1.MsgSubmitProposal{
 		Proposer:       addr1.String(),
 		InitialDeposit: sdk.NewCoins(sdk.NewInt64Coin("uatom", 12345)),
-		Content:        content,
+		Messages: []*codectypes.Any{
+			{
+				TypeUrl: content.TypeUrl,
+				Value:   content.Value,
+			},
+		},
 	}
 	proposalMsgBin, err := proto.Marshal(proposalMsg)
 	require.NoError(t, err)
@@ -353,7 +359,7 @@ func TestEncoding(t *testing.T) {
 		"stargate encoded bank msg": {
 			sender: addr2,
 			srcMsg: wasmvmtypes.CosmosMsg{
-				Stargate: &wasmvmtypes.StargateMsg{
+				Any: &wasmvmtypes.AnyMsg{
 					TypeURL: "/cosmos.bank.v1beta1.MsgSend",
 					Value:   bankMsgBin,
 				},
@@ -363,7 +369,7 @@ func TestEncoding(t *testing.T) {
 		"stargate encoded msg with any type": {
 			sender: addr2,
 			srcMsg: wasmvmtypes.CosmosMsg{
-				Stargate: &wasmvmtypes.StargateMsg{
+				Any: &wasmvmtypes.AnyMsg{
 					TypeURL: "/cosmos.gov.v1beta1.MsgSubmitProposal",
 					Value:   proposalMsgBin,
 				},
@@ -373,7 +379,7 @@ func TestEncoding(t *testing.T) {
 		"stargate encoded invalid typeUrl": {
 			sender: addr2,
 			srcMsg: wasmvmtypes.CosmosMsg{
-				Stargate: &wasmvmtypes.StargateMsg{
+				Any: &wasmvmtypes.AnyMsg{
 					TypeURL: "/cosmos.bank.v2.MsgSend",
 					Value:   bankMsgBin,
 				},
@@ -407,7 +413,7 @@ func TestEncoding(t *testing.T) {
 					SourceChannel: "myChanID",
 					Token: sdk.Coin{
 						Denom:  "ALX",
-						Amount: sdk.NewInt(1),
+						Amount: math.NewInt(1),
 					},
 					Sender:        addr1.String(),
 					Receiver:      addr2.String(),
@@ -440,7 +446,7 @@ func TestEncoding(t *testing.T) {
 					SourceChannel: "myChanID",
 					Token: sdk.Coin{
 						Denom:  "ALX",
-						Amount: sdk.NewInt(1),
+						Amount: math.NewInt(1),
 					},
 					Sender:           addr1.String(),
 					Receiver:         addr2.String(),
@@ -473,7 +479,7 @@ func TestEncoding(t *testing.T) {
 					SourceChannel: "myChanID",
 					Token: sdk.Coin{
 						Denom:  "ALX",
-						Amount: sdk.NewInt(1),
+						Amount: math.NewInt(1),
 					},
 					Sender:           addr1.String(),
 					Receiver:         addr2.String(),
@@ -505,14 +511,14 @@ func TestEncoding(t *testing.T) {
 			srcContractIBCPort: "myIBCPort",
 			srcMsg: wasmvmtypes.CosmosMsg{
 				Gov: &wasmvmtypes.GovMsg{
-					Vote: &wasmvmtypes.VoteMsg{ProposalId: 1, Vote: wasmvmtypes.Yes},
+					Vote: &wasmvmtypes.VoteMsg{ProposalId: 1, Option: wasmvmtypes.Yes},
 				},
 			},
 			output: []sdk.Msg{
-				&govtypes.MsgVote{
+				&govv1.MsgVote{
 					ProposalId: 1,
 					Voter:      addr1.String(),
-					Option:     govtypes.OptionYes,
+					Option:     govv1.OptionYes,
 				},
 			},
 		},
@@ -521,14 +527,14 @@ func TestEncoding(t *testing.T) {
 			srcContractIBCPort: "myIBCPort",
 			srcMsg: wasmvmtypes.CosmosMsg{
 				Gov: &wasmvmtypes.GovMsg{
-					Vote: &wasmvmtypes.VoteMsg{ProposalId: 1, Vote: wasmvmtypes.No},
+					Vote: &wasmvmtypes.VoteMsg{ProposalId: 1, Option: wasmvmtypes.No},
 				},
 			},
 			output: []sdk.Msg{
-				&govtypes.MsgVote{
+				&govv1.MsgVote{
 					ProposalId: 1,
 					Voter:      addr1.String(),
-					Option:     govtypes.OptionNo,
+					Option:     govv1.OptionNo,
 				},
 			},
 		},
@@ -537,14 +543,14 @@ func TestEncoding(t *testing.T) {
 			srcContractIBCPort: "myIBCPort",
 			srcMsg: wasmvmtypes.CosmosMsg{
 				Gov: &wasmvmtypes.GovMsg{
-					Vote: &wasmvmtypes.VoteMsg{ProposalId: 10, Vote: wasmvmtypes.Abstain},
+					Vote: &wasmvmtypes.VoteMsg{ProposalId: 10, Option: wasmvmtypes.Abstain},
 				},
 			},
 			output: []sdk.Msg{
-				&govtypes.MsgVote{
+				&govv1.MsgVote{
 					ProposalId: 10,
 					Voter:      addr1.String(),
-					Option:     govtypes.OptionAbstain,
+					Option:     govv1.OptionAbstain,
 				},
 			},
 		},
@@ -553,14 +559,14 @@ func TestEncoding(t *testing.T) {
 			srcContractIBCPort: "myIBCPort",
 			srcMsg: wasmvmtypes.CosmosMsg{
 				Gov: &wasmvmtypes.GovMsg{
-					Vote: &wasmvmtypes.VoteMsg{ProposalId: 1, Vote: wasmvmtypes.NoWithVeto},
+					Vote: &wasmvmtypes.VoteMsg{ProposalId: 1, Option: wasmvmtypes.NoWithVeto},
 				},
 			},
 			output: []sdk.Msg{
-				&govtypes.MsgVote{
+				&govv1.MsgVote{
 					ProposalId: 1,
 					Voter:      addr1.String(),
-					Option:     govtypes.OptionNoWithVeto,
+					Option:     govv1.OptionNoWithVeto,
 				},
 			},
 		},
@@ -592,7 +598,7 @@ func TestConvertWasmCoinToSdkCoin(t *testing.T) {
 				Denom:  "foo",
 				Amount: "1",
 			},
-			expVal: sdk.NewCoin("foo", sdk.NewIntFromUint64(1)),
+			expVal: sdk.NewCoin("foo", math.NewIntFromUint64(1)),
 		},
 		"negative amount": {
 			src: wasmvmtypes.Coin{

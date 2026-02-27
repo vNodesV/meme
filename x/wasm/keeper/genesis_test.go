@@ -6,26 +6,25 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"testing"
 	"time"
 
+	cosmoslog "cosmossdk.io/log"
+	"cosmossdk.io/math"
 	"cosmossdk.io/store"
+	"cosmossdk.io/store/metrics"
 	"cosmossdk.io/store/prefix"
-	dbm "github.com/cometbft/cometbft-db"
+	storetypes "cosmossdk.io/store/types"
 	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/libs/log"
 	"github.com/cometbft/cometbft/proto/tendermint/crypto"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	dbm "github.com/cosmos/cosmos-db"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
-	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govv1beta1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
 	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,7 +40,7 @@ func TestGenesisExportImport(t *testing.T) {
 	wasmKeeper, srcCtx, srcStoreKeys := setupKeeper(t)
 	contractKeeper := NewGovPermissionKeeper(wasmKeeper)
 
-	wasmCode, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasmCode, err := os.ReadFile("./testdata/hackatom.wasm")
 	require.NoError(t, err)
 
 	// store some test data
@@ -74,9 +73,9 @@ func TestGenesisExportImport(t *testing.T) {
 		}
 		if contractExtension {
 			anyTime := time.Now().UTC()
-			var nestedType govtypes.TextProposal
+			var nestedType govv1beta1.TextProposal
 			f.NilChance(0).Fuzz(&nestedType)
-			myExtension, err := govtypes.NewProposal(&nestedType, 1, anyTime, anyTime)
+			myExtension, err := govv1beta1.NewProposal(&nestedType, 1, anyTime, anyTime)
 			require.NoError(t, err)
 			contract.SetExtension(&myExtension)
 		}
@@ -131,7 +130,7 @@ func TestGenesisExportImport(t *testing.T) {
 	var importState wasmTypes.GenesisState
 	err = dstKeeper.cdc.UnmarshalJSON(exportedGenesis, &importState)
 	require.NoError(t, err)
-	InitGenesis(dstCtx, dstKeeper, importState, &StakingKeeperMock{}, TestHandler(contractKeeper))
+	InitGenesis(dstCtx, dstKeeper, importState, &StakingKeeperMock{}, testHandler(contractKeeper))
 
 	// compare whole DB
 	for j := range srcStoreKeys {
@@ -155,7 +154,7 @@ func TestGenesisExportImport(t *testing.T) {
 
 func TestGenesisInit(t *testing.T) {
 	SkipIfM1(t)
-	wasmCode, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasmCode, err := os.ReadFile("./testdata/hackatom.wasm")
 	require.NoError(t, err)
 
 	myCodeInfo := wasmTypes.CodeInfoFixture(wasmTypes.WithSHA256CodeHash(wasmCode))
@@ -499,7 +498,7 @@ func TestImportContractWithCodeHistoryReset(t *testing.T) {
 	keeper, ctx, _ := setupKeeper(t)
 	contractKeeper := NewGovPermissionKeeper(keeper)
 
-	wasmCode, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasmCode, err := os.ReadFile("./testdata/hackatom.wasm")
 	require.NoError(t, err)
 
 	wasmCodeHash := sha256.Sum256(wasmCode)
@@ -511,10 +510,10 @@ func TestImportContractWithCodeHistoryReset(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, importState.ValidateBasic(), genesisStr)
 
-	ctx = ctx.WithBlockHeight(0).WithGasMeter(sdk.NewInfiniteGasMeter())
+	ctx = ctx.WithBlockHeight(0).WithGasMeter(storetypes.NewInfiniteGasMeter())
 
 	// when
-	_, err = InitGenesis(ctx, keeper, importState, &StakingKeeperMock{}, TestHandler(contractKeeper))
+	_, err = InitGenesis(ctx, keeper, importState, &StakingKeeperMock{}, testHandler(contractKeeper))
 	require.NoError(t, err)
 
 	// verify wasm code
@@ -565,7 +564,7 @@ func TestImportContractWithCodeHistoryReset(t *testing.T) {
 
 func TestSupportedGenMsgTypes(t *testing.T) {
 	SkipIfM1(t)
-	wasmCode, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasmCode, err := os.ReadFile("./testdata/hackatom.wasm")
 	require.NoError(t, err)
 	var (
 		myAddress          sdk.AccAddress = bytes.Repeat([]byte{1}, types.ContractAddrLen)
@@ -594,7 +593,7 @@ func TestSupportedGenMsgTypes(t *testing.T) {
 							Verifier:    verifierAddress,
 							Beneficiary: beneficiaryAddress,
 						}.GetBytes(t),
-						Funds: sdk.NewCoins(sdk.NewCoin(denom, sdk.NewInt(10))),
+						Funds: sdk.NewCoins(sdk.NewCoin(denom, math.NewInt(10))),
 					},
 				},
 			},
@@ -612,11 +611,11 @@ func TestSupportedGenMsgTypes(t *testing.T) {
 	require.NoError(t, importState.ValidateBasic())
 	ctx, keepers := CreateDefaultTestInput(t)
 	keeper := keepers.WasmKeeper
-	ctx = ctx.WithBlockHeight(0).WithGasMeter(sdk.NewInfiniteGasMeter())
-	keepers.Faucet.Fund(ctx, myAddress, sdk.NewCoin(denom, sdk.NewInt(100)))
+	ctx = ctx.WithBlockHeight(0).WithGasMeter(storetypes.NewInfiniteGasMeter())
+	keepers.Faucet.Fund(ctx, myAddress, sdk.NewCoin(denom, math.NewInt(100)))
 
 	// when
-	_, err = InitGenesis(ctx, keeper, importState, &StakingKeeperMock{}, TestHandler(keepers.ContractKeeper))
+	_, err = InitGenesis(ctx, keeper, importState, &StakingKeeperMock{}, testHandler(keepers.ContractKeeper))
 	require.NoError(t, err)
 
 	// verify code stored
@@ -632,46 +631,44 @@ func TestSupportedGenMsgTypes(t *testing.T) {
 
 	// verify contract executed
 	gotBalance := keepers.BankKeeper.GetBalance(ctx, beneficiaryAddress, denom)
-	assert.Equal(t, sdk.NewCoin(denom, sdk.NewInt(10)), gotBalance)
+	assert.Equal(t, sdk.NewCoin(denom, math.NewInt(10)), gotBalance)
 }
 
-func setupKeeper(t *testing.T) (*Keeper, sdk.Context, []sdk.StoreKey) {
+func setupKeeper(t *testing.T) (*Keeper, sdk.Context, []storetypes.StoreKey) {
 	t.Helper()
-	tempDir, err := ioutil.TempDir("", "wasm")
-	require.NoError(t, err)
-	t.Cleanup(func() { os.RemoveAll(tempDir) })
+	tempDir := t.TempDir()
 	var (
-		keyParams  = sdk.NewKVStoreKey(paramtypes.StoreKey)
-		tkeyParams = sdk.NewTransientStoreKey(paramtypes.TStoreKey)
-		keyWasm    = sdk.NewKVStoreKey(wasmTypes.StoreKey)
+		keyParams  = storetypes.NewKVStoreKey(paramtypes.StoreKey)
+		tkeyParams = storetypes.NewTransientStoreKey(paramtypes.TStoreKey)
+		keyWasm    = storetypes.NewKVStoreKey(wasmTypes.StoreKey)
 	)
 
 	db := dbm.NewMemDB()
-	ms := store.NewCommitMultiStore(db)
-	ms.MountStoreWithDB(keyWasm, sdk.StoreTypeIAVL, db)
-	ms.MountStoreWithDB(keyParams, sdk.StoreTypeIAVL, db)
-	ms.MountStoreWithDB(tkeyParams, sdk.StoreTypeTransient, db)
+	ms := store.NewCommitMultiStore(db, cosmoslog.NewNopLogger(), metrics.NewNoOpMetrics())
+	ms.MountStoreWithDB(keyWasm, storetypes.StoreTypeIAVL, db)
+	ms.MountStoreWithDB(keyParams, storetypes.StoreTypeIAVL, db)
+	ms.MountStoreWithDB(tkeyParams, storetypes.StoreTypeTransient, db)
 	require.NoError(t, ms.LoadLatestVersion())
 
 	ctx := sdk.NewContext(ms, tmproto.Header{
 		Height: 1234567,
 		Time:   time.Date(2020, time.April, 22, 12, 0, 0, 0, time.UTC),
-	}, false, log.NewNopLogger())
+	}, false, cosmoslog.NewNopLogger())
 
 	encodingConfig := MakeEncodingConfig(t)
 	// register an example extension. must be protobuf
 	encodingConfig.InterfaceRegistry.RegisterImplementations(
 		(*types.ContractInfoExtension)(nil),
-		&govtypes.Proposal{},
+		&govv1beta1.Proposal{},
 	)
 	// also registering gov interfaces for nested Any type
-	govtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	govv1beta1.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 
 	wasmConfig := wasmTypes.DefaultWasmConfig()
 	pk := paramskeeper.NewKeeper(encodingConfig.Marshaler, encodingConfig.Amino, keyParams, tkeyParams)
 
-	srcKeeper := NewKeeper(encodingConfig.Marshaler, keyWasm, pk.Subspace(wasmTypes.ModuleName), authkeeper.AccountKeeper{}, nil, stakingkeeper.Keeper{}, distributionkeeper.Keeper{}, nil, nil, nil, nil, nil, nil, tempDir, wasmConfig, SupportedFeatures)
-	return &srcKeeper, ctx, []sdk.StoreKey{keyWasm, keyParams}
+	srcKeeper := NewKeeper(encodingConfig.Marshaler, keyWasm, pk.Subspace(wasmTypes.ModuleName), nil, nil, nil, nil, nil, nil, nil, nil, nil, tempDir, wasmConfig, SupportedFeatures)
+	return &srcKeeper, ctx, []storetypes.StoreKey{keyWasm, keyParams}
 }
 
 type StakingKeeperMock struct {
@@ -679,6 +676,67 @@ type StakingKeeperMock struct {
 	validatorUpdate []abci.ValidatorUpdate
 	expCalls        int
 	gotCalls        int
+}
+
+// testHandler returns a wasm handler for tests (replacement for removed TestHandler)
+func testHandler(k types.ContractOpsKeeper) Handler {
+	return func(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
+		ctx = ctx.WithEventManager(sdk.NewEventManager())
+		switch msg := msg.(type) {
+		case *types.MsgStoreCode:
+			senderAddr, err := sdk.AccAddressFromBech32(msg.Sender)
+			if err != nil {
+				return nil, err
+			}
+			codeID, err := k.Create(ctx, senderAddr, msg.WASMByteCode, msg.InstantiatePermission)
+			if err != nil {
+				return nil, err
+			}
+			return &sdk.Result{
+				Data:   []byte(fmt.Sprintf("%d", codeID)),
+				Events: ctx.EventManager().ABCIEvents(),
+			}, nil
+		case *types.MsgInstantiateContract:
+			senderAddr, err := sdk.AccAddressFromBech32(msg.Sender)
+			if err != nil {
+				return nil, err
+			}
+			var adminAddr sdk.AccAddress
+			if msg.Admin != "" {
+				adminAddr, err = sdk.AccAddressFromBech32(msg.Admin)
+				if err != nil {
+					return nil, err
+				}
+			}
+			contractAddr, _, err := k.Instantiate(ctx, msg.CodeID, senderAddr, adminAddr, msg.Msg, msg.Label, msg.Funds)
+			if err != nil {
+				return nil, err
+			}
+			return &sdk.Result{
+				Data:   contractAddr,
+				Events: ctx.EventManager().Events().ToABCIEvents(),
+			}, nil
+		case *types.MsgExecuteContract:
+			senderAddr, err := sdk.AccAddressFromBech32(msg.Sender)
+			if err != nil {
+				return nil, err
+			}
+			contractAddr, err := sdk.AccAddressFromBech32(msg.Contract)
+			if err != nil {
+				return nil, err
+			}
+			data, err := k.Execute(ctx, contractAddr, senderAddr, msg.Msg, msg.Funds)
+			if err != nil {
+				return nil, err
+			}
+			return &sdk.Result{
+				Data:   data,
+				Events: ctx.EventManager().Events().ToABCIEvents(),
+			}, nil
+		default:
+			return nil, fmt.Errorf("unrecognized wasm message type: %T", msg)
+		}
+	}
 }
 
 func (s *StakingKeeperMock) ApplyAndReturnValidatorSetUpdates(_ sdk.Context) ([]abci.ValidatorUpdate, error) {

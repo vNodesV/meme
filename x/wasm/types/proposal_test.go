@@ -6,8 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"cosmossdk.io/math"
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govv1beta1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
@@ -48,7 +50,7 @@ func TestValidateProposalCommons(t *testing.T) {
 		},
 		"prevent title exceeds max length ": {
 			src: commonProposal{
-				Title:       strings.Repeat("a", govtypes.MaxTitleLength+1),
+				Title:       strings.Repeat("a", 140+1),
 				Description: "Bar",
 			},
 			expErr: true,
@@ -76,7 +78,7 @@ func TestValidateProposalCommons(t *testing.T) {
 		"prevent descr exceeds max length ": {
 			src: commonProposal{
 				Title:       "Foo",
-				Description: strings.Repeat("a", govtypes.MaxDescriptionLength+1),
+				Description: strings.Repeat("a", 10000+1),
 			},
 			expErr: true,
 		},
@@ -233,13 +235,13 @@ func TestValidateInstantiateContractProposal(t *testing.T) {
 		},
 		"init funds negative": {
 			src: InstantiateContractProposalFixture(func(p *InstantiateContractProposal) {
-				p.Funds = sdk.Coins{{Denom: "foo", Amount: sdk.NewInt(-1)}}
+				p.Funds = sdk.Coins{{Denom: "foo", Amount: math.NewInt(-1)}}
 			}),
 			expErr: true,
 		},
 		"init funds with duplicates": {
 			src: InstantiateContractProposalFixture(func(p *InstantiateContractProposal) {
-				p.Funds = sdk.Coins{{Denom: "foo", Amount: sdk.NewInt(1)}, {Denom: "foo", Amount: sdk.NewInt(2)}}
+				p.Funds = sdk.Coins{{Denom: "foo", Amount: math.NewInt(1)}, {Denom: "foo", Amount: math.NewInt(2)}}
 			}),
 			expErr: true,
 		},
@@ -417,7 +419,7 @@ func TestValidateClearAdminProposal(t *testing.T) {
 
 func TestProposalStrings(t *testing.T) {
 	specs := map[string]struct {
-		src govtypes.Content
+		src govv1beta1.Content
 		exp string
 	}{
 		"store code": {
@@ -433,7 +435,7 @@ func TestProposalStrings(t *testing.T) {
 		},
 		"instantiate contract": {
 			src: InstantiateContractProposalFixture(func(p *InstantiateContractProposal) {
-				p.Funds = sdk.Coins{{Denom: "foo", Amount: sdk.NewInt(1)}, {Denom: "bar", Amount: sdk.NewInt(2)}}
+				p.Funds = sdk.Coins{{Denom: "foo", Amount: math.NewInt(1)}, {Denom: "bar", Amount: math.NewInt(2)}}
 			}),
 			exp: `Instantiate Code Proposal:
   Title:       Foo
@@ -533,7 +535,7 @@ func TestProposalStrings(t *testing.T) {
 
 func TestProposalYaml(t *testing.T) {
 	specs := map[string]struct {
-		src govtypes.Content
+		src govv1beta1.Content
 		exp string
 	}{
 		"store code": {
@@ -549,7 +551,7 @@ instantiate_permission: null
 		},
 		"instantiate contract": {
 			src: InstantiateContractProposalFixture(func(p *InstantiateContractProposal) {
-				p.Funds = sdk.Coins{{Denom: "foo", Amount: sdk.NewInt(1)}, {Denom: "bar", Amount: sdk.NewInt(2)}}
+				p.Funds = sdk.Coins{{Denom: "foo", Amount: math.NewInt(1)}, {Denom: "bar", Amount: math.NewInt(2)}}
 			}),
 			exp: `title: Foo
 description: Bar
@@ -678,8 +680,8 @@ func TestConvertToProposals(t *testing.T) {
 func TestUnmarshalContentFromJson(t *testing.T) {
 	specs := map[string]struct {
 		src string
-		got govtypes.Content
-		exp govtypes.Content
+		got govv1beta1.Content
+		exp govv1beta1.Content
 	}{
 		"instantiate ": {
 			src: `
@@ -702,7 +704,7 @@ func TestUnmarshalContentFromJson(t *testing.T) {
 				CodeID:      1,
 				Label:       "testing",
 				Msg:         []byte("{}"),
-				Funds:       sdk.NewCoins(sdk.NewCoin("ALX", sdk.NewInt(2)), sdk.NewCoin("BLX", sdk.NewInt(3))),
+				Funds:       sdk.NewCoins(sdk.NewCoin("ALX", math.NewInt(2)), sdk.NewCoin("BLX", math.NewInt(3))),
 			},
 		},
 		"migrate ": {
@@ -736,7 +738,7 @@ func TestUnmarshalContentFromJson(t *testing.T) {
 func TestProposalJsonSignBytes(t *testing.T) {
 	const myInnerMsg = `{"foo":"bar"}`
 	specs := map[string]struct {
-		src govtypes.Content
+		src govv1beta1.Content
 		exp string
 	}{
 		"instantiate contract": {
@@ -758,10 +760,12 @@ func TestProposalJsonSignBytes(t *testing.T) {
 	}
 	for name, spec := range specs {
 		t.Run(name, func(t *testing.T) {
-			msg, err := govtypes.NewMsgSubmitProposal(spec.src, sdk.NewCoins(), []byte{})
+			msg, err := govv1beta1.NewMsgSubmitProposal(spec.src, sdk.NewCoins(), sdk.AccAddress{})
 			require.NoError(t, err)
 
-			bz := msg.GetSignBytes()
+			// SDK 0.50: GetSignBytes removed. Use amino marshal directly.
+			cdc := codec.NewLegacyAmino()
+			bz := sdk.MustSortJSON(cdc.MustMarshalJSON(msg))
 			assert.JSONEq(t, spec.exp, string(bz), "raw: %s", string(bz))
 		})
 	}

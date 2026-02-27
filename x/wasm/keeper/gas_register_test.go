@@ -7,7 +7,6 @@ import (
 
 	storetypes "cosmossdk.io/store/types"
 	wasmvmtypes "github.com/CosmWasm/wasmvm/v2/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,18 +14,18 @@ func TestCompileCosts(t *testing.T) {
 	specs := map[string]struct {
 		srcLen    int
 		srcConfig WasmGasRegisterConfig
-		exp       sdk.Gas
+		exp       storetypes.Gas
 		expPanic  bool
 	}{
 		"one byte": {
 			srcLen:    1,
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       sdk.Gas(3), // DefaultCompileCost
+			exp:       storetypes.Gas(3), // DefaultCompileCost
 		},
 		"zero byte": {
 			srcLen:    0,
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       sdk.Gas(0),
+			exp:       storetypes.Gas(0),
 		},
 		"negative len": {
 			srcLen:    -1,
@@ -53,7 +52,7 @@ func TestNewContractInstanceCosts(t *testing.T) {
 		srcLen    int
 		srcConfig WasmGasRegisterConfig
 		pinned    bool
-		exp       sdk.Gas
+		exp       storetypes.Gas
 		expPanic  bool
 	}{
 		"small msg - pinned": {
@@ -66,13 +65,13 @@ func TestNewContractInstanceCosts(t *testing.T) {
 			srcLen:    math.MaxUint32,
 			srcConfig: DefaultGasRegisterConfig(),
 			pinned:    true,
-			exp:       DefaultContractMessageDataCost * sdk.Gas(math.MaxUint32),
+			exp:       DefaultContractMessageDataCost * storetypes.Gas(math.MaxUint32),
 		},
 		"empty msg - pinned": {
 			srcLen:    0,
 			pinned:    true,
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       sdk.Gas(0),
+			exp:       storetypes.Gas(0),
 		},
 		"small msg - unpinned": {
 			srcLen:    1,
@@ -82,12 +81,12 @@ func TestNewContractInstanceCosts(t *testing.T) {
 		"big msg - unpinned": {
 			srcLen:    math.MaxUint32,
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       sdk.Gas(DefaultContractMessageDataCost*math.MaxUint32 + DefaultInstanceCost),
+			exp:       storetypes.Gas(DefaultContractMessageDataCost*math.MaxUint32 + DefaultInstanceCost),
 		},
 		"empty msg - unpinned": {
 			srcLen:    0,
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       sdk.Gas(DefaultInstanceCost),
+			exp:       storetypes.Gas(DefaultInstanceCost),
 		},
 
 		"negative len": {
@@ -116,7 +115,7 @@ func TestContractInstanceCosts(t *testing.T) {
 		srcLen    int
 		srcConfig WasmGasRegisterConfig
 		pinned    bool
-		exp       sdk.Gas
+		exp       storetypes.Gas
 		expPanic  bool
 	}{
 		"small msg - pinned": {
@@ -129,13 +128,13 @@ func TestContractInstanceCosts(t *testing.T) {
 			srcLen:    math.MaxUint32,
 			srcConfig: DefaultGasRegisterConfig(),
 			pinned:    true,
-			exp:       sdk.Gas(DefaultContractMessageDataCost * math.MaxUint32),
+			exp:       storetypes.Gas(DefaultContractMessageDataCost * math.MaxUint32),
 		},
 		"empty msg - pinned": {
 			srcLen:    0,
 			pinned:    true,
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       sdk.Gas(0),
+			exp:       storetypes.Gas(0),
 		},
 		"small msg - unpinned": {
 			srcLen:    1,
@@ -145,12 +144,12 @@ func TestContractInstanceCosts(t *testing.T) {
 		"big msg - unpinned": {
 			srcLen:    math.MaxUint32,
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       sdk.Gas(DefaultContractMessageDataCost*math.MaxUint32 + DefaultInstanceCost),
+			exp:       storetypes.Gas(DefaultContractMessageDataCost*math.MaxUint32 + DefaultInstanceCost),
 		},
 		"empty msg - unpinned": {
 			srcLen:    0,
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       sdk.Gas(DefaultInstanceCost),
+			exp:       storetypes.Gas(DefaultInstanceCost),
 		},
 
 		"negative len": {
@@ -178,13 +177,13 @@ func TestReplyCost(t *testing.T) {
 		src       wasmvmtypes.Reply
 		srcConfig WasmGasRegisterConfig
 		pinned    bool
-		exp       sdk.Gas
+		exp       storetypes.Gas
 		expPanic  bool
 	}{
 		"subcall response with events and data - pinned": {
 			src: wasmvmtypes.Reply{
-				Result: wasmvmtypes.SubcallResult{
-					Ok: &wasmvmtypes.SubcallResponse{
+				Result: wasmvmtypes.SubMsgResult{
+					Ok: &wasmvmtypes.SubMsgResponse{
 						Events: []wasmvmtypes.Event{
 							{Type: "foo", Attributes: []wasmvmtypes.EventAttribute{{Key: "myKey", Value: "myData"}}},
 						},
@@ -194,12 +193,12 @@ func TestReplyCost(t *testing.T) {
 			},
 			srcConfig: DefaultGasRegisterConfig(),
 			pinned:    true,
-			exp:       sdk.Gas(3*DefaultEventAttributeDataCost + DefaultPerAttributeCost + DefaultContractMessageDataCost), // 3 == len("foo")
+			exp:       storetypes.Gas(3*DefaultEventAttributeDataCost + DefaultPerAttributeCost + DefaultContractMessageDataCost), // 3 == len("foo")
 		},
 		"subcall response with events - pinned": {
 			src: wasmvmtypes.Reply{
-				Result: wasmvmtypes.SubcallResult{
-					Ok: &wasmvmtypes.SubcallResponse{
+				Result: wasmvmtypes.SubMsgResult{
+					Ok: &wasmvmtypes.SubMsgResponse{
 						Events: []wasmvmtypes.Event{
 							{Type: "foo", Attributes: []wasmvmtypes.EventAttribute{{Key: "myKey", Value: "myData"}}},
 						},
@@ -208,12 +207,12 @@ func TestReplyCost(t *testing.T) {
 			},
 			srcConfig: DefaultGasRegisterConfig(),
 			pinned:    true,
-			exp:       sdk.Gas(3*DefaultEventAttributeDataCost + DefaultPerAttributeCost), // 3 == len("foo")
+			exp:       storetypes.Gas(3*DefaultEventAttributeDataCost + DefaultPerAttributeCost), // 3 == len("foo")
 		},
 		"subcall response with events exceeds free tier- pinned": {
 			src: wasmvmtypes.Reply{
-				Result: wasmvmtypes.SubcallResult{
-					Ok: &wasmvmtypes.SubcallResponse{
+				Result: wasmvmtypes.SubMsgResult{
+					Ok: &wasmvmtypes.SubMsgResponse{
 						Events: []wasmvmtypes.Event{
 							{Type: "foo", Attributes: []wasmvmtypes.EventAttribute{{Key: strings.Repeat("x", DefaultEventAttributeDataFreeTier), Value: "myData"}}},
 						},
@@ -222,11 +221,11 @@ func TestReplyCost(t *testing.T) {
 			},
 			srcConfig: DefaultGasRegisterConfig(),
 			pinned:    true,
-			exp:       sdk.Gas((3+6)*DefaultEventAttributeDataCost + DefaultPerAttributeCost), // 3 == len("foo"), 6 == len("myData")
+			exp:       storetypes.Gas((3+6)*DefaultEventAttributeDataCost + DefaultPerAttributeCost), // 3 == len("foo"), 6 == len("myData")
 		},
 		"subcall response error - pinned": {
 			src: wasmvmtypes.Reply{
-				Result: wasmvmtypes.SubcallResult{
+				Result: wasmvmtypes.SubMsgResult{
 					Err: "foo",
 				},
 			},
@@ -236,8 +235,8 @@ func TestReplyCost(t *testing.T) {
 		},
 		"subcall response with events and data - unpinned": {
 			src: wasmvmtypes.Reply{
-				Result: wasmvmtypes.SubcallResult{
-					Ok: &wasmvmtypes.SubcallResponse{
+				Result: wasmvmtypes.SubMsgResult{
+					Ok: &wasmvmtypes.SubMsgResponse{
 						Events: []wasmvmtypes.Event{
 							{Type: "foo", Attributes: []wasmvmtypes.EventAttribute{{Key: "myKey", Value: "myData"}}},
 						},
@@ -246,12 +245,12 @@ func TestReplyCost(t *testing.T) {
 				},
 			},
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       sdk.Gas(DefaultInstanceCost + 3*DefaultEventAttributeDataCost + DefaultPerAttributeCost + DefaultContractMessageDataCost),
+			exp:       storetypes.Gas(DefaultInstanceCost + 3*DefaultEventAttributeDataCost + DefaultPerAttributeCost + DefaultContractMessageDataCost),
 		},
 		"subcall response with events - unpinned": {
 			src: wasmvmtypes.Reply{
-				Result: wasmvmtypes.SubcallResult{
-					Ok: &wasmvmtypes.SubcallResponse{
+				Result: wasmvmtypes.SubMsgResult{
+					Ok: &wasmvmtypes.SubMsgResponse{
 						Events: []wasmvmtypes.Event{
 							{Type: "foo", Attributes: []wasmvmtypes.EventAttribute{{Key: "myKey", Value: "myData"}}},
 						},
@@ -259,12 +258,12 @@ func TestReplyCost(t *testing.T) {
 				},
 			},
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       sdk.Gas(DefaultInstanceCost + 3*DefaultEventAttributeDataCost + DefaultPerAttributeCost),
+			exp:       storetypes.Gas(DefaultInstanceCost + 3*DefaultEventAttributeDataCost + DefaultPerAttributeCost),
 		},
 		"subcall response with events exceeds free tier- unpinned": {
 			src: wasmvmtypes.Reply{
-				Result: wasmvmtypes.SubcallResult{
-					Ok: &wasmvmtypes.SubcallResponse{
+				Result: wasmvmtypes.SubMsgResult{
+					Ok: &wasmvmtypes.SubMsgResponse{
 						Events: []wasmvmtypes.Event{
 							{Type: "foo", Attributes: []wasmvmtypes.EventAttribute{{Key: strings.Repeat("x", DefaultEventAttributeDataFreeTier), Value: "myData"}}},
 						},
@@ -272,16 +271,16 @@ func TestReplyCost(t *testing.T) {
 				},
 			},
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       sdk.Gas(DefaultInstanceCost + (3+6)*DefaultEventAttributeDataCost + DefaultPerAttributeCost), // 3 == len("foo"), 6 == len("myData")
+			exp:       storetypes.Gas(DefaultInstanceCost + (3+6)*DefaultEventAttributeDataCost + DefaultPerAttributeCost), // 3 == len("foo"), 6 == len("myData")
 		},
 		"subcall response error - unpinned": {
 			src: wasmvmtypes.Reply{
-				Result: wasmvmtypes.SubcallResult{
+				Result: wasmvmtypes.SubMsgResult{
 					Err: "foo",
 				},
 			},
 			srcConfig: DefaultGasRegisterConfig(),
-			exp:       sdk.Gas(DefaultInstanceCost + 3*DefaultContractMessageDataCost),
+			exp:       storetypes.Gas(DefaultInstanceCost + 3*DefaultContractMessageDataCost),
 		},
 	}
 	for name, spec := range specs {

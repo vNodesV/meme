@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
-	"math"
+	stdmath "math"
+	"os"
 	"testing"
 	"time"
 
@@ -31,7 +31,7 @@ import (
 
 // When migrated to go 1.16, embed package should be used instead.
 func init() {
-	b, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	b, err := os.ReadFile("./testdata/hackatom.wasm")
 	if err != nil {
 		panic(err)
 	}
@@ -150,7 +150,7 @@ func TestCreateWithParamPermissions(t *testing.T) {
 
 	specs := map[string]struct {
 		srcPermission types.AccessConfig
-		expError      *sdkerrors.Error
+		expError      error
 	}{
 		"default": {
 			srcPermission: types.DefaultUploadAccess,
@@ -176,7 +176,7 @@ func TestCreateWithParamPermissions(t *testing.T) {
 			params.CodeUploadAccess = spec.srcPermission
 			keepers.WasmKeeper.SetParams(ctx, params)
 			_, err := keeper.Create(ctx, creator, hackatomWasm, nil)
-			require.True(t, spec.expError.Is(err), err)
+			require.True(t, errors.Is(err, spec.expError), err)
 			if spec.expError != nil {
 				return
 			}
@@ -226,7 +226,7 @@ func TestCreateWithSimulation(t *testing.T) {
 
 	// then try to create it in non-simulation mode (should not fail)
 	ctx, keepers = CreateTestInput(t, false, SupportedFeatures)
-	ctx = ctx.WithGasMeter(sdk.NewGasMeter(10_000_000))
+	ctx = ctx.WithGasMeter(stypes.NewGasMeter(10_000_000))
 	creator = keepers.Faucet.NewFundedAccount(ctx, deposit...)
 	contractID, err = keepers.ContractKeeper.Create(ctx, creator, hackatomWasm, nil)
 
@@ -271,7 +271,7 @@ func TestCreateWithGzippedPayload(t *testing.T) {
 	deposit := sdk.NewCoins(sdk.NewInt64Coin("denom", 100000))
 	creator := keepers.Faucet.NewFundedAccount(ctx, deposit...)
 
-	wasmCode, err := ioutil.ReadFile("./testdata/hackatom.wasm.gzip")
+	wasmCode, err := os.ReadFile("./testdata/hackatom.wasm.gzip")
 	require.NoError(t, err, "reading gzipped WASM code")
 
 	contractID, err := keeper.Create(ctx, creator, wasmCode, nil)
@@ -416,7 +416,7 @@ func TestInstantiateWithPermissions(t *testing.T) {
 	specs := map[string]struct {
 		srcPermission types.AccessConfig
 		srcActor      sdk.AccAddress
-		expError      *sdkerrors.Error
+		expError      error
 	}{
 		"default": {
 			srcPermission: types.DefaultUploadAccess,
@@ -450,7 +450,7 @@ func TestInstantiateWithPermissions(t *testing.T) {
 			require.NoError(t, err)
 
 			_, _, err = keepers.ContractKeeper.Instantiate(ctx, contractID, spec.srcActor, nil, initMsgBz, "demo contract 1", nil)
-			assert.True(t, spec.expError.Is(err), "got %+v", err)
+			assert.True(t, errors.Is(err, spec.expError), "got %+v", err)
 		})
 	}
 }
@@ -528,7 +528,7 @@ func TestExecute(t *testing.T) {
 	assert.Equal(t, deposit, bankKeeper.GetAllBalances(ctx, contractAcct.GetAddress()))
 
 	// unauthorized - trialCtx so we don't change state
-	trialCtx := ctx.WithMultiStore(ctx.MultiStore().CacheWrap().(sdk.MultiStore))
+	trialCtx := ctx.WithMultiStore(ctx.MultiStore().CacheWrap().(stypes.MultiStore))
 	res, err := keepers.ContractKeeper.Execute(trialCtx, addr, creator, []byte(`{"release":{}}`), nil)
 	require.Error(t, err)
 	require.True(t, errors.Is(err, types.ErrExecuteFailed))
@@ -730,14 +730,14 @@ func TestExecuteWithCpuLoop(t *testing.T) {
 
 	// make sure we set a limit before calling
 	var gasLimit uint64 = 400_000
-	ctx = ctx.WithGasMeter(sdk.NewGasMeter(gasLimit))
+	ctx = ctx.WithGasMeter(stypes.NewGasMeter(gasLimit))
 	require.Equal(t, uint64(0), ctx.GasMeter().GasConsumed())
 
 	// ensure we get an out of gas panic
 	defer func() {
 		r := recover()
 		require.NotNil(t, r)
-		_, ok := r.(sdk.ErrorOutOfGas)
+		_, ok := r.(stypes.ErrorOutOfGas)
 		require.True(t, ok, "%v", r)
 	}()
 
@@ -773,14 +773,14 @@ func TestExecuteWithStorageLoop(t *testing.T) {
 
 	// make sure we set a limit before calling
 	var gasLimit uint64 = 400_002
-	ctx = ctx.WithGasMeter(sdk.NewGasMeter(gasLimit))
+	ctx = ctx.WithGasMeter(stypes.NewGasMeter(gasLimit))
 	require.Equal(t, uint64(0), ctx.GasMeter().GasConsumed())
 
 	// ensure we get an out of gas panic
 	defer func() {
 		r := recover()
 		require.NotNil(t, r)
-		_, ok := r.(sdk.ErrorOutOfGas)
+		_, ok := r.(stypes.ErrorOutOfGas)
 		require.True(t, ok, "%v", r)
 	}()
 
@@ -824,7 +824,7 @@ func TestMigrate(t *testing.T) {
 		fromCodeID           uint64
 		toCodeID             uint64
 		migrateMsg           []byte
-		expErr               *sdkerrors.Error
+		expErr               error
 		expVerifier          sdk.AccAddress
 		expIBCPort           bool
 		initMsg              []byte
@@ -939,7 +939,7 @@ func TestMigrate(t *testing.T) {
 			_, err = keeper.Migrate(ctx, contractAddr, spec.caller, spec.toCodeID, spec.migrateMsg)
 
 			// then
-			require.True(t, spec.expErr.Is(err), "expected %v but got %+v", spec.expErr, err)
+			require.True(t, errors.Is(err, spec.expErr), "expected %v but got %+v", spec.expErr, err)
 			if spec.expErr != nil {
 				return
 			}
@@ -1014,7 +1014,7 @@ func TestMigrateWithDispatchedMessage(t *testing.T) {
 	creator := keepers.Faucet.NewFundedAccount(ctx, deposit.Add(deposit...)...)
 	fred := keepers.Faucet.NewFundedAccount(ctx, sdk.NewInt64Coin("denom", 5000))
 
-	burnerCode, err := ioutil.ReadFile("./testdata/burner.wasm")
+	burnerCode, err := os.ReadFile("./testdata/burner.wasm")
 	require.NoError(t, err)
 
 	originalContractID, err := keeper.Create(ctx, creator, hackatomWasm, nil)
@@ -1138,7 +1138,7 @@ func TestIterateContractsByCodeWithMigration(t *testing.T) {
 		return &wasmvmtypes.Response{}, 1, nil
 	}}
 	wasmtesting.MakeInstantiable(&mockWasmVM)
-	ctx, keepers := CreateTestInput(t, false, SupportedFeatures, WithWasmEngine(&mockWasmVM))
+	ctx, keepers := CreateTestInput(t, false, SupportedFeatures)
 	k, c := keepers.WasmKeeper, keepers.ContractKeeper
 	example1 := InstantiateHackatomExampleContract(t, ctx, keepers)
 	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 1)
@@ -1172,8 +1172,8 @@ type sudoMsg struct {
 }
 
 type stealFundsMsg struct {
-	Recipient string            `json:"recipient"`
-	Amount    wasmvmtypes.Coins `json:"amount"`
+	Recipient string             `json:"recipient"`
+	Amount    []wasmvmtypes.Coin `json:"amount"`
 }
 
 func TestSudo(t *testing.T) {
@@ -1210,7 +1210,7 @@ func TestSudo(t *testing.T) {
 		// to end users (via Tx/Execute).
 		StealFunds: stealFundsMsg{
 			Recipient: community.String(),
-			Amount:    wasmvmtypes.Coins{wasmvmtypes.NewCoin(76543, "denom")},
+			Amount:    []wasmvmtypes.Coin{wasmvmtypes.NewCoin(76543, "denom")},
 		},
 	}
 	sudoMsg, err := json.Marshal(msg)
@@ -1284,7 +1284,7 @@ func TestUpdateContractAdmin(t *testing.T) {
 		newAdmin             sdk.AccAddress
 		overrideContractAddr sdk.AccAddress
 		caller               sdk.AccAddress
-		expErr               *sdkerrors.Error
+		expErr               error
 	}{
 		"all good with admin set": {
 			instAdmin: fred,
@@ -1318,7 +1318,7 @@ func TestUpdateContractAdmin(t *testing.T) {
 				addr = spec.overrideContractAddr
 			}
 			err = keeper.UpdateContractAdmin(ctx, addr, spec.caller, spec.newAdmin)
-			require.True(t, spec.expErr.Is(err), "expected %v but got %+v", spec.expErr, err)
+			require.True(t, errors.Is(err, spec.expErr), "expected %v but got %+v", spec.expErr, err)
 			if spec.expErr != nil {
 				return
 			}
@@ -1351,7 +1351,7 @@ func TestClearContractAdmin(t *testing.T) {
 		instAdmin            sdk.AccAddress
 		overrideContractAddr sdk.AccAddress
 		caller               sdk.AccAddress
-		expErr               *sdkerrors.Error
+		expErr               error
 	}{
 		"all good when called by proper admin": {
 			instAdmin: fred,
@@ -1381,7 +1381,7 @@ func TestClearContractAdmin(t *testing.T) {
 				addr = spec.overrideContractAddr
 			}
 			err = keeper.ClearContractAdmin(ctx, addr, spec.caller)
-			require.True(t, spec.expErr.Is(err), "expected %v but got %+v", spec.expErr, err)
+			require.True(t, errors.Is(err, spec.expErr), "expected %v but got %+v", spec.expErr, err)
 			if spec.expErr != nil {
 				return
 			}
@@ -1492,7 +1492,7 @@ func TestPinnedContractLoops(t *testing.T) {
 
 	// a pinned contract that calls itself via submessages should terminate with an
 	// error at some point
-	ctx, keepers := CreateTestInput(t, false, SupportedFeatures, WithWasmEngine(&mock))
+	ctx, keepers := CreateTestInput(t, false, SupportedFeatures)
 	k := keepers.WasmKeeper
 
 	example := SeedNewContractInstance(t, ctx, keepers, &mock)
@@ -1518,8 +1518,8 @@ func TestPinnedContractLoops(t *testing.T) {
 			},
 		}, 0, nil
 	}
-	ctx = ctx.WithGasMeter(sdk.NewGasMeter(20000))
-	require.PanicsWithValue(t, sdk.ErrorOutOfGas{Descriptor: "ReadFlat"}, func() {
+	ctx = ctx.WithGasMeter(stypes.NewGasMeter(20000))
+	require.PanicsWithValue(t, stypes.ErrorOutOfGas{Descriptor: "ReadFlat"}, func() {
 		_, err := k.execute(ctx, example.Contract, RandomAccountAddress(t), anyMsg, nil)
 		require.NoError(t, err)
 	})
@@ -1727,21 +1727,21 @@ func TestBuildContractAddress(t *testing.T) {
 			expectedAddr:  "cosmos1mujpjkwhut9yjw4xueyugc02evfv46y0dtmnz4lh8xxkkdapym9stu5qm8",
 		},
 		"both below max": {
-			srcCodeID:     math.MaxUint32 - 1,
-			srcInstanceID: math.MaxUint32 - 1,
+			srcCodeID:     stdmath.MaxUint32 - 1,
+			srcInstanceID: stdmath.MaxUint32 - 1,
 		},
 		"both at max": {
-			srcCodeID:     math.MaxUint32,
-			srcInstanceID: math.MaxUint32,
+			srcCodeID:     stdmath.MaxUint32,
+			srcInstanceID: stdmath.MaxUint32,
 		},
 		"codeID > max u32": {
-			srcCodeID:     math.MaxUint32 + 1,
+			srcCodeID:     stdmath.MaxUint32 + 1,
 			srcInstanceID: 17,
 			expectedAddr:  "cosmos1673hrexz4h6s0ft04l96ygq667djzh2nsr335kstjp49x5dk6rpsf5t0le",
 		},
 		"instanceID > max u32": {
 			srcCodeID:     22,
-			srcInstanceID: math.MaxUint32 + 1,
+			srcInstanceID: stdmath.MaxUint32 + 1,
 			expectedAddr:  "cosmos10q3pgfvmeyy0veekgtqhxujxkhz0vm9zmalqgc7evrhj68q3l62qrdfg4m",
 		},
 	}

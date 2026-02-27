@@ -5,16 +5,17 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"os"
 	"testing"
 
+	"cosmossdk.io/math"
 	wasmvm "github.com/CosmWasm/wasmvm/v2"
 
 	"github.com/CosmWasm/wasmd/x/wasm/keeper/wasmtesting"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	"github.com/cosmos/cosmos-sdk/x/params/types/proposal"
+	govv1beta1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
+	paramproposal "github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -29,7 +30,7 @@ func TestStoreCodeProposal(t *testing.T) {
 		InstantiateDefaultPermission: types.AccessTypeNobody,
 		MaxWasmCodeSize:              types.DefaultMaxWasmCodeSize,
 	})
-	wasmCode, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasmCode, err := os.ReadFile("./testdata/hackatom.wasm")
 	require.NoError(t, err)
 
 	myActorAddress := RandomBech32AccountAddress(t)
@@ -40,12 +41,10 @@ func TestStoreCodeProposal(t *testing.T) {
 	})
 
 	// when stored
-	storedProposal, err := govKeeper.SubmitProposal(ctx, src)
-	require.NoError(t, err)
+	handler := govKeeper.LegacyRouter().GetRoute(src.ProposalRoute())
 
 	// and proposal execute
-	handler := govKeeper.Router().GetRoute(storedProposal.ProposalRoute())
-	err = handler(ctx, storedProposal.GetContent())
+	err = handler(ctx, src)
 	require.NoError(t, err)
 
 	// then
@@ -68,7 +67,7 @@ func TestInstantiateProposal(t *testing.T) {
 		MaxWasmCodeSize:              types.DefaultMaxWasmCodeSize,
 	})
 
-	wasmCode, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasmCode, err := os.ReadFile("./testdata/hackatom.wasm")
 	require.NoError(t, err)
 
 	require.NoError(t, wasmKeeper.importCode(ctx, 1,
@@ -89,12 +88,10 @@ func TestInstantiateProposal(t *testing.T) {
 	em := sdk.NewEventManager()
 
 	// when stored
-	storedProposal, err := govKeeper.SubmitProposal(ctx, src)
-	require.NoError(t, err)
+	handler := govKeeper.LegacyRouter().GetRoute(src.ProposalRoute())
 
 	// and proposal execute
-	handler := govKeeper.Router().GetRoute(storedProposal.ProposalRoute())
-	err = handler(ctx.WithEventManager(em), storedProposal.GetContent())
+	err = handler(ctx.WithEventManager(em), src)
 	require.NoError(t, err)
 
 	// then
@@ -132,7 +129,7 @@ func TestMigrateProposal(t *testing.T) {
 		MaxWasmCodeSize:              types.DefaultMaxWasmCodeSize,
 	})
 
-	wasmCode, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasmCode, err := os.ReadFile("./testdata/hackatom.wasm")
 	require.NoError(t, err)
 
 	codeInfoFixture := types.CodeInfoFixture(types.WithSHA256CodeHash(wasmCode))
@@ -171,12 +168,10 @@ func TestMigrateProposal(t *testing.T) {
 	em := sdk.NewEventManager()
 
 	// when stored
-	storedProposal, err := govKeeper.SubmitProposal(ctx, &src)
-	require.NoError(t, err)
+	handler := govKeeper.LegacyRouter().GetRoute(src.ProposalRoute())
 
 	// and proposal execute
-	handler := govKeeper.Router().GetRoute(storedProposal.ProposalRoute())
-	err = handler(ctx.WithEventManager(em), storedProposal.GetContent())
+	err = handler(ctx.WithEventManager(em), &src)
 	require.NoError(t, err)
 
 	// then
@@ -214,7 +209,7 @@ func TestExecuteProposal(t *testing.T) {
 
 	// check balance
 	bal := bankKeeper.GetBalance(ctx, contractAddr, "denom")
-	require.Equal(t, bal.Amount, sdk.NewInt(100))
+	require.Equal(t, bal.Amount, math.NewInt(100))
 
 	releaseMsg := struct {
 		Release struct{} `json:"release"`
@@ -234,11 +229,13 @@ func TestExecuteProposal(t *testing.T) {
 	em := sdk.NewEventManager()
 
 	// fails on store - this doesn't have permission
-	storedProposal, err := govKeeper.SubmitProposal(ctx, &badSrc)
+	// SDK 0.50: Use LegacyRouter directly instead of SubmitProposal
+	handler := govKeeper.LegacyRouter().GetRoute(badSrc.ProposalRoute())
+	err = handler(ctx, &badSrc)
 	require.Error(t, err)
 	// balance should not change
 	bal = bankKeeper.GetBalance(ctx, contractAddr, "denom")
-	require.Equal(t, bal.Amount, sdk.NewInt(100))
+	require.Equal(t, bal.Amount, math.NewInt(100))
 
 	// try again with the proper run-as
 	src := types.ExecuteContractProposal{
@@ -252,17 +249,15 @@ func TestExecuteProposal(t *testing.T) {
 	em = sdk.NewEventManager()
 
 	// when stored
-	storedProposal, err = govKeeper.SubmitProposal(ctx, &src)
-	require.NoError(t, err)
+	handler = govKeeper.LegacyRouter().GetRoute(src.ProposalRoute())
 
 	// and proposal execute
-	handler := govKeeper.Router().GetRoute(storedProposal.ProposalRoute())
-	err = handler(ctx.WithEventManager(em), storedProposal.GetContent())
+	err = handler(ctx.WithEventManager(em), &src)
 	require.NoError(t, err)
 
 	// balance should be empty (proper release)
 	bal = bankKeeper.GetBalance(ctx, contractAddr, "denom")
-	require.Equal(t, bal.Amount, sdk.NewInt(0))
+	require.Equal(t, bal.Amount, math.NewInt(0))
 }
 
 func TestSudoProposal(t *testing.T) {
@@ -275,9 +270,9 @@ func TestSudoProposal(t *testing.T) {
 
 	// check balance
 	bal := bankKeeper.GetBalance(ctx, contractAddr, "denom")
-	require.Equal(t, bal.Amount, sdk.NewInt(100))
+	require.Equal(t, bal.Amount, math.NewInt(100))
 	bal = bankKeeper.GetBalance(ctx, anyAddr, "denom")
-	require.Equal(t, bal.Amount, sdk.NewInt(0))
+	require.Equal(t, bal.Amount, math.NewInt(0))
 
 	type StealMsg struct {
 		Recipient string     `json:"recipient"`
@@ -303,19 +298,17 @@ func TestSudoProposal(t *testing.T) {
 	em := sdk.NewEventManager()
 
 	// when stored
-	storedProposal, err := govKeeper.SubmitProposal(ctx, &src)
-	require.NoError(t, err)
+	handler := govKeeper.LegacyRouter().GetRoute(src.ProposalRoute())
 
 	// and proposal execute
-	handler := govKeeper.Router().GetRoute(storedProposal.ProposalRoute())
-	err = handler(ctx.WithEventManager(em), storedProposal.GetContent())
+	err = handler(ctx.WithEventManager(em), &src)
 	require.NoError(t, err)
 
 	// balance should be empty (and verifier richer)
 	bal = bankKeeper.GetBalance(ctx, contractAddr, "denom")
-	require.Equal(t, bal.Amount, sdk.NewInt(25))
+	require.Equal(t, bal.Amount, math.NewInt(25))
 	bal = bankKeeper.GetBalance(ctx, anyAddr, "denom")
-	require.Equal(t, bal.Amount, sdk.NewInt(75))
+	require.Equal(t, bal.Amount, math.NewInt(75))
 }
 
 func TestAdminProposals(t *testing.T) {
@@ -323,12 +316,12 @@ func TestAdminProposals(t *testing.T) {
 		otherAddress sdk.AccAddress = bytes.Repeat([]byte{0x2}, types.ContractAddrLen)
 		contractAddr                = BuildContractAddress(1, 1)
 	)
-	wasmCode, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasmCode, err := os.ReadFile("./testdata/hackatom.wasm")
 	require.NoError(t, err)
 
 	specs := map[string]struct {
 		state       types.ContractInfo
-		srcProposal govtypes.Content
+		srcProposal govv1beta1.Content
 		expAdmin    sdk.AccAddress
 	}{
 		"update with different admin": {
@@ -389,12 +382,10 @@ func TestAdminProposals(t *testing.T) {
 
 			require.NoError(t, wasmKeeper.importContract(ctx, contractAddr, &spec.state, []types.Model{}))
 			// when stored
-			storedProposal, err := govKeeper.SubmitProposal(ctx, spec.srcProposal)
-			require.NoError(t, err)
+			handler := govKeeper.LegacyRouter().GetRoute(spec.srcProposal.ProposalRoute())
 
 			// and execute proposal
-			handler := govKeeper.Router().GetRoute(storedProposal.ProposalRoute())
-			err = handler(ctx, storedProposal.GetContent())
+			err = handler(ctx, spec.srcProposal)
 			require.NoError(t, err)
 
 			// then
@@ -418,12 +409,12 @@ func TestUpdateParamsProposal(t *testing.T) {
 	nobodyJson, err := json.Marshal(types.AccessTypeNobody)
 	require.NoError(t, err)
 	specs := map[string]struct {
-		src                proposal.ParamChange
+		src                paramproposal.ParamChange
 		expUploadConfig    types.AccessConfig
 		expInstantiateType types.AccessType
 	}{
 		"update upload permission param": {
-			src: proposal.ParamChange{
+			src: paramproposal.ParamChange{
 				Subspace: types.ModuleName,
 				Key:      string(types.ParamStoreKeyUploadAccess),
 				Value:    string(cdc.MustMarshalJSON(&types.AllowNobody)),
@@ -432,7 +423,7 @@ func TestUpdateParamsProposal(t *testing.T) {
 			expInstantiateType: types.AccessTypeEverybody,
 		},
 		"update upload permission param with address": {
-			src: proposal.ParamChange{
+			src: paramproposal.ParamChange{
 				Subspace: types.ModuleName,
 				Key:      string(types.ParamStoreKeyUploadAccess),
 				Value:    string(cdc.MustMarshalJSON(&oneAddressAccessConfig)),
@@ -441,7 +432,7 @@ func TestUpdateParamsProposal(t *testing.T) {
 			expInstantiateType: types.AccessTypeEverybody,
 		},
 		"update instantiate param": {
-			src: proposal.ParamChange{
+			src: paramproposal.ParamChange{
 				Subspace: types.ModuleName,
 				Key:      string(types.ParamStoreKeyInstantiateAccess),
 				Value:    string(nobodyJson),
@@ -454,19 +445,17 @@ func TestUpdateParamsProposal(t *testing.T) {
 		t.Run(msg, func(t *testing.T) {
 			wasmKeeper.SetParams(ctx, types.DefaultParams())
 
-			proposal := proposal.ParameterChangeProposal{
+			paramProp := paramproposal.ParameterChangeProposal{
 				Title:       "Foo",
 				Description: "Bar",
-				Changes:     []proposal.ParamChange{spec.src},
+				Changes:     []paramproposal.ParamChange{spec.src},
 			}
 
 			// when stored
-			storedProposal, err := govKeeper.SubmitProposal(ctx, &proposal)
-			require.NoError(t, err)
+			handler := govKeeper.LegacyRouter().GetRoute(paramProp.ProposalRoute())
 
 			// and proposal execute
-			handler := govKeeper.Router().GetRoute(storedProposal.ProposalRoute())
-			err = handler(ctx, storedProposal.GetContent())
+			err = handler(ctx, &paramProp)
 			require.NoError(t, err)
 
 			// then
@@ -544,16 +533,12 @@ func TestPinCodesProposal(t *testing.T) {
 			}
 
 			// when stored
-			storedProposal, gotErr := govKeeper.SubmitProposal(ctx, &proposal)
+			legacyHandler := govKeeper.LegacyRouter().GetRoute((&proposal).ProposalRoute())
+			gotErr := legacyHandler(ctx, &proposal)
 			if spec.expErr {
 				require.Error(t, gotErr)
 				return
 			}
-			require.NoError(t, gotErr)
-
-			// and proposal execute
-			handler := govKeeper.Router().GetRoute(storedProposal.ProposalRoute())
-			gotErr = handler(ctx, storedProposal.GetContent())
 			require.NoError(t, gotErr)
 
 			// then
@@ -631,16 +616,12 @@ func TestUnpinCodesProposal(t *testing.T) {
 			}
 
 			// when stored
-			storedProposal, gotErr := govKeeper.SubmitProposal(ctx, &proposal)
+			legacyHandler := govKeeper.LegacyRouter().GetRoute((&proposal).ProposalRoute())
+			gotErr := legacyHandler(ctx, &proposal)
 			if spec.expErr {
 				require.Error(t, gotErr)
 				return
 			}
-			require.NoError(t, gotErr)
-
-			// and proposal execute
-			handler := govKeeper.Router().GetRoute(storedProposal.ProposalRoute())
-			gotErr = handler(ctx, storedProposal.GetContent())
 			require.NoError(t, gotErr)
 
 			// then

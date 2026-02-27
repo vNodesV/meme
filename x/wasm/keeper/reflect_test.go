@@ -2,7 +2,8 @@ package keeper
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -95,14 +95,14 @@ func TestReflectContractSend(t *testing.T) {
 	_, _, bob := keyPubAddr()
 
 	// upload reflect code
-	reflectCode, err := ioutil.ReadFile("./testdata/reflect.wasm")
+	reflectCode, err := os.ReadFile("./testdata/reflect.wasm")
 	require.NoError(t, err)
 	reflectID, err := keeper.Create(ctx, creator, reflectCode, nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), reflectID)
 
 	// upload hackatom escrow code
-	escrowCode, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	escrowCode, err := os.ReadFile("./testdata/hackatom.wasm")
 	require.NoError(t, err)
 	escrowID, err := keeper.Create(ctx, creator, escrowCode, nil)
 	require.NoError(t, err)
@@ -179,7 +179,7 @@ func TestReflectCustomMsg(t *testing.T) {
 	_, _, fred := keyPubAddr()
 
 	// upload code
-	reflectCode, err := ioutil.ReadFile("./testdata/reflect.wasm")
+	reflectCode, err := os.ReadFile("./testdata/reflect.wasm")
 	require.NoError(t, err)
 	codeID, err := keeper.Create(ctx, creator, reflectCode, nil)
 	require.NoError(t, err)
@@ -271,7 +271,7 @@ func TestMaskReflectCustomQuery(t *testing.T) {
 	creator := keepers.Faucet.NewFundedAccount(ctx, deposit...)
 
 	// upload code
-	reflectCode, err := ioutil.ReadFile("./testdata/reflect.wasm")
+	reflectCode, err := os.ReadFile("./testdata/reflect.wasm")
 	require.NoError(t, err)
 	codeID, err := keepers.ContractKeeper.Create(ctx, creator, reflectCode, nil)
 	require.NoError(t, err)
@@ -320,11 +320,11 @@ func TestReflectStargateQuery(t *testing.T) {
 
 	funds := sdk.NewCoins(sdk.NewInt64Coin("denom", 320000))
 	contractStart := sdk.NewCoins(sdk.NewInt64Coin("denom", 40000))
-	expectedBalance := funds.Sub(contractStart)
+	expectedBalance := funds.Sub(contractStart...)
 	creator := keepers.Faucet.NewFundedAccount(ctx, funds...)
 
 	// upload code
-	reflectCode, err := ioutil.ReadFile("./testdata/reflect.wasm")
+	reflectCode, err := os.ReadFile("./testdata/reflect.wasm")
 	require.NoError(t, err)
 	codeID, err := keepers.ContractKeeper.Create(ctx, creator, reflectCode, nil)
 	require.NoError(t, err)
@@ -397,7 +397,7 @@ func TestReflectInvalidStargateQuery(t *testing.T) {
 	creator := keepers.Faucet.NewFundedAccount(ctx, funds...)
 
 	// upload code
-	reflectCode, err := ioutil.ReadFile("./testdata/reflect.wasm")
+	reflectCode, err := os.ReadFile("./testdata/reflect.wasm")
 	require.NoError(t, err)
 	codeID, err := keepers.ContractKeeper.Create(ctx, creator, reflectCode, nil)
 	require.NoError(t, err)
@@ -457,7 +457,7 @@ func TestMaskReflectWasmQueries(t *testing.T) {
 	creator := keepers.Faucet.NewFundedAccount(ctx, deposit...)
 
 	// upload reflect code
-	reflectCode, err := ioutil.ReadFile("./testdata/reflect.wasm")
+	reflectCode, err := os.ReadFile("./testdata/reflect.wasm")
 	require.NoError(t, err)
 	reflectID, err := keepers.ContractKeeper.Create(ctx, creator, reflectCode, nil)
 	require.NoError(t, err)
@@ -530,7 +530,7 @@ func TestWasmRawQueryWithNil(t *testing.T) {
 	creator := keepers.Faucet.NewFundedAccount(ctx, deposit...)
 
 	// upload reflect code
-	reflectCode, err := ioutil.ReadFile("./testdata/reflect.wasm")
+	reflectCode, err := os.ReadFile("./testdata/reflect.wasm")
 	require.NoError(t, err)
 	reflectID, err := keepers.ContractKeeper.Create(ctx, creator, reflectCode, nil)
 	require.NoError(t, err)
@@ -598,7 +598,7 @@ func toReflectRawMsg(cdc codec.Codec, msg sdk.Msg) (wasmvmtypes.CosmosMsg, error
 	}
 	rawBz, err := cdc.MarshalJSON(any)
 	if err != nil {
-		return wasmvmtypes.CosmosMsg{}, sdkerrors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
+		return wasmvmtypes.CosmosMsg{}, fmt.Errorf("%s: %w", err.Error(), types.ErrInvalidMsg)
 	}
 	customMsg, err := json.Marshal(reflectCustomMsg{
 		Raw: rawBz,
@@ -623,12 +623,12 @@ func fromReflectRawMsg(cdc codec.Codec) CustomEncoder {
 		var custom reflectCustomMsg
 		err := json.Unmarshal(msg, &custom)
 		if err != nil {
-			return nil, sdkerrors.Wrap(sdkerrors.ErrJSONUnmarshal, err.Error())
+			return nil, fmt.Errorf("%s: %w", err.Error(), types.ErrInvalidMsg)
 		}
 		if custom.Raw != nil {
 			var any codectypes.Any
 			if err := cdc.UnmarshalJSON(custom.Raw, &any); err != nil {
-				return nil, sdkerrors.Wrap(sdkerrors.ErrJSONUnmarshal, err.Error())
+				return nil, fmt.Errorf("%s: %w", err.Error(), types.ErrInvalidMsg)
 			}
 			var msg sdk.Msg
 			if err := cdc.UnpackAny(&any, &msg); err != nil {
@@ -637,9 +637,9 @@ func fromReflectRawMsg(cdc codec.Codec) CustomEncoder {
 			return []sdk.Msg{msg}, nil
 		}
 		if custom.Debug != "" {
-			return nil, sdkerrors.Wrapf(types.ErrInvalidMsg, "Custom Debug: %s", custom.Debug)
+			return nil, fmt.Errorf("Custom Debug: %s: %w", custom.Debug, types.ErrInvalidMsg)
 		}
-		return nil, sdkerrors.Wrap(types.ErrInvalidMsg, "Unknown Custom message variant")
+		return nil, fmt.Errorf("%s: %w", "Unknown Custom message variant", types.ErrInvalidMsg)
 	}
 }
 
@@ -677,7 +677,7 @@ func performCustomQuery(_ sdk.Context, request json.RawMessage) ([]byte, error) 
 	var custom reflectCustomQuery
 	err := json.Unmarshal(request, &custom)
 	if err != nil {
-		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONUnmarshal, err.Error())
+		return nil, fmt.Errorf("%s: %w", err.Error(), types.ErrInvalidMsg)
 	}
 	if custom.Capitalized != nil {
 		msg := strings.ToUpper(custom.Capitalized.Text)
@@ -686,5 +686,5 @@ func performCustomQuery(_ sdk.Context, request json.RawMessage) ([]byte, error) 
 	if custom.Ping != nil {
 		return json.Marshal(customQueryResponse{Msg: "pong"})
 	}
-	return nil, sdkerrors.Wrap(types.ErrInvalidMsg, "Unknown Custom query variant")
+	return nil, fmt.Errorf("%s: %w", "Unknown Custom query variant", types.ErrInvalidMsg)
 }

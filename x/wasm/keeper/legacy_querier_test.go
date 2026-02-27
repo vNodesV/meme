@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"testing"
 
+	stypes "cosmossdk.io/store/types"
 	abci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,7 @@ func TestLegacyQueryContractState(t *testing.T) {
 	creator := keepers.Faucet.NewFundedAccount(ctx, deposit.Add(deposit...)...)
 	anyAddr := keepers.Faucet.NewFundedAccount(ctx, sdk.NewInt64Coin("denom", 5000))
 
-	wasmCode, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasmCode, err := os.ReadFile("./testdata/hackatom.wasm")
 	require.NoError(t, err)
 
 	contractID, err := keepers.ContractKeeper.Create(ctx, creator, wasmCode, nil)
@@ -48,7 +49,7 @@ func TestLegacyQueryContractState(t *testing.T) {
 	keeper.importContractState(ctx, addr, contractModel)
 
 	// this gets us full error, not redacted sdk.Error
-	var defaultQueryGasLimit sdk.Gas = 3000000
+	var defaultQueryGasLimit stypes.Gas = 3000000
 	q := NewLegacyQuerier(keeper, defaultQueryGasLimit)
 
 	specs := map[string]struct {
@@ -129,7 +130,7 @@ func TestLegacyQueryContractState(t *testing.T) {
 	for msg, spec := range specs {
 		t.Run(msg, func(t *testing.T) {
 			binResult, err := q(ctx, spec.srcPath, spec.srcReq)
-			// require.True(t, spec.expErr.Is(err), "unexpected error")
+			// require.True(t, errors.Is(err, spec.expErr), "unexpected error")
 			require.True(t, errors.Is(err, spec.expErr), err)
 
 			// if smart query, check custom response
@@ -162,7 +163,7 @@ func TestLegacyQueryContractListByCodeOrdering(t *testing.T) {
 	creator := keepers.Faucet.NewFundedAccount(ctx, deposit.Add(deposit...)...)
 	anyAddr := keepers.Faucet.NewFundedAccount(ctx, topUp...)
 
-	wasmCode, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasmCode, err := os.ReadFile("./testdata/hackatom.wasm")
 	require.NoError(t, err)
 
 	codeID, err := keepers.ContractKeeper.Create(ctx, creator, wasmCode, nil)
@@ -180,7 +181,7 @@ func TestLegacyQueryContractListByCodeOrdering(t *testing.T) {
 	var h int64 = 10
 	setBlock := func(ctx sdk.Context, height int64) sdk.Context {
 		ctx = ctx.WithBlockHeight(height)
-		meter := sdk.NewGasMeter(1000000)
+		meter := stypes.NewGasMeter(1000000)
 		ctx = ctx.WithGasMeter(meter)
 		ctx = ctx.WithBlockGasMeter(meter)
 		return ctx
@@ -198,7 +199,7 @@ func TestLegacyQueryContractListByCodeOrdering(t *testing.T) {
 	}
 
 	// query and check the results are properly sorted
-	var defaultQueryGasLimit sdk.Gas = 3000000
+	var defaultQueryGasLimit stypes.Gas = 3000000
 	q := NewLegacyQuerier(keeper, defaultQueryGasLimit)
 
 	query := []string{QueryListContractByCode, fmt.Sprintf("%d", codeID)}
@@ -290,7 +291,7 @@ func TestLegacyQueryContractHistory(t *testing.T) {
 			_, _, myContractAddr := keyPubAddr()
 			keeper.appendToContractHistory(ctx, myContractAddr, spec.srcHistory...)
 
-			var defaultQueryGasLimit sdk.Gas = 3000000
+			var defaultQueryGasLimit stypes.Gas = 3000000
 			q := NewLegacyQuerier(keeper, defaultQueryGasLimit)
 			queryContractAddr := spec.srcQueryAddr
 			if queryContractAddr == nil {
@@ -314,7 +315,7 @@ func TestLegacyQueryContractHistory(t *testing.T) {
 }
 
 func TestLegacyQueryCodeList(t *testing.T) {
-	wasmCode, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasmCode, err := os.ReadFile("./testdata/hackatom.wasm")
 	require.NoError(t, err)
 
 	specs := map[string]struct {
@@ -340,7 +341,7 @@ func TestLegacyQueryCodeList(t *testing.T) {
 					wasmCode),
 				)
 			}
-			var defaultQueryGasLimit sdk.Gas = 3000000
+			var defaultQueryGasLimit stypes.Gas = 3000000
 			q := NewLegacyQuerier(keeper, defaultQueryGasLimit)
 			// when
 			query := []string{QueryListCode}

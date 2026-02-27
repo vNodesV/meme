@@ -2,9 +2,11 @@ package types
 
 import (
 	"bytes"
+	"encoding/hex"
 	"strings"
 	"testing"
 
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,9 +15,9 @@ import (
 const firstCodeID = 1
 
 func TestStoreCodeValidation(t *testing.T) {
-	bad, err := sdk.AccAddressFromHex("012345")
+	badBytes, err := hex.DecodeString("012345")
 	require.NoError(t, err)
-	badAddress := bad.String()
+	badAddress := sdk.AccAddress(badBytes).String()
 	// proper address size
 	goodAddress := sdk.AccAddress(make([]byte, ContractAddrLen)).String()
 	sdk.GetConfig().SetAddressVerifier(VerifyAddressLen())
@@ -77,9 +79,9 @@ func TestStoreCodeValidation(t *testing.T) {
 }
 
 func TestInstantiateContractValidation(t *testing.T) {
-	bad, err := sdk.AccAddressFromHex("012345")
+	badBytes, err := hex.DecodeString("012345")
 	require.NoError(t, err)
-	badAddress := bad.String()
+	badAddress := sdk.AccAddress(badBytes).String()
 	// proper address size
 	goodAddress := sdk.AccAddress(make([]byte, 20)).String()
 
@@ -137,7 +139,7 @@ func TestInstantiateContractValidation(t *testing.T) {
 				CodeID: firstCodeID,
 				Label:  "foo",
 				Msg:    []byte(`{"some": "data"}`),
-				Funds:  sdk.Coins{sdk.Coin{Denom: "foobar", Amount: sdk.NewInt(200)}},
+				Funds:  sdk.Coins{sdk.Coin{Denom: "foobar", Amount: math.NewInt(200)}},
 			},
 			valid: true,
 		},
@@ -148,7 +150,7 @@ func TestInstantiateContractValidation(t *testing.T) {
 				Label:  "foo",
 				Msg:    []byte(`{"some": "data"}`),
 				// we cannot use sdk.NewCoin() constructors as they panic on creating invalid data (before we can test)
-				Funds: sdk.Coins{sdk.Coin{Denom: "foobar", Amount: sdk.NewInt(-200)}},
+				Funds: sdk.Coins{sdk.Coin{Denom: "foobar", Amount: math.NewInt(-200)}},
 			},
 			valid: false,
 		},
@@ -184,9 +186,9 @@ func TestInstantiateContractValidation(t *testing.T) {
 }
 
 func TestExecuteContractValidation(t *testing.T) {
-	bad, err := sdk.AccAddressFromHex("012345")
+	badBytes, err := hex.DecodeString("012345")
 	require.NoError(t, err)
-	badAddress := bad.String()
+	badAddress := sdk.AccAddress(badBytes).String()
 	// proper address size
 	goodAddress := sdk.AccAddress(make([]byte, 20)).String()
 
@@ -211,7 +213,7 @@ func TestExecuteContractValidation(t *testing.T) {
 				Sender:   goodAddress,
 				Contract: goodAddress,
 				Msg:      []byte(`{"some": "data"}`),
-				Funds:    sdk.Coins{sdk.Coin{Denom: "foobar", Amount: sdk.NewInt(200)}},
+				Funds:    sdk.Coins{sdk.Coin{Denom: "foobar", Amount: math.NewInt(200)}},
 			},
 			valid: true,
 		},
@@ -250,7 +252,7 @@ func TestExecuteContractValidation(t *testing.T) {
 				Sender:   goodAddress,
 				Contract: goodAddress,
 				Msg:      []byte(`{"some": "data"}`),
-				Funds:    sdk.Coins{sdk.Coin{Denom: "foobar", Amount: sdk.NewInt(-1)}},
+				Funds:    sdk.Coins{sdk.Coin{Denom: "foobar", Amount: math.NewInt(-1)}},
 			},
 			valid: false,
 		},
@@ -259,7 +261,7 @@ func TestExecuteContractValidation(t *testing.T) {
 				Sender:   goodAddress,
 				Contract: goodAddress,
 				Msg:      []byte(`{"some": "data"}`),
-				Funds:    sdk.Coins{sdk.Coin{Denom: "foobar", Amount: sdk.NewInt(1)}, sdk.Coin{Denom: "foobar", Amount: sdk.NewInt(1)}},
+				Funds:    sdk.Coins{sdk.Coin{Denom: "foobar", Amount: math.NewInt(1)}, sdk.Coin{Denom: "foobar", Amount: math.NewInt(1)}},
 			},
 			valid: false,
 		},
@@ -293,9 +295,9 @@ func TestExecuteContractValidation(t *testing.T) {
 }
 
 func TestMsgUpdateAdministrator(t *testing.T) {
-	bad, err := sdk.AccAddressFromHex("012345")
+	badBytes, err := hex.DecodeString("012345")
 	require.NoError(t, err)
-	badAddress := bad.String()
+	badAddress := sdk.AccAddress(badBytes).String()
 	// proper address size
 	goodAddress := sdk.AccAddress(make([]byte, 20)).String()
 	otherGoodAddress := sdk.AccAddress(bytes.Repeat([]byte{0x1}, 20)).String()
@@ -365,9 +367,9 @@ func TestMsgUpdateAdministrator(t *testing.T) {
 }
 
 func TestMsgClearAdministrator(t *testing.T) {
-	bad, err := sdk.AccAddressFromHex("012345")
+	badBytes, err := hex.DecodeString("012345")
 	require.NoError(t, err)
-	badAddress := bad.String()
+	badAddress := sdk.AccAddress(badBytes).String()
 	// proper address size
 	goodAddress := sdk.AccAddress(make([]byte, 20)).String()
 	anotherGoodAddress := sdk.AccAddress(bytes.Repeat([]byte{0x2}, 20)).String()
@@ -416,9 +418,9 @@ func TestMsgClearAdministrator(t *testing.T) {
 }
 
 func TestMsgMigrateContract(t *testing.T) {
-	bad, err := sdk.AccAddressFromHex("012345")
+	badBytes, err := hex.DecodeString("012345")
 	require.NoError(t, err)
-	badAddress := bad.String()
+	badAddress := sdk.AccAddress(badBytes).String()
 	// proper address size
 	goodAddress := sdk.AccAddress(make([]byte, 20)).String()
 	anotherGoodAddress := sdk.AccAddress(bytes.Repeat([]byte{0x2}, 20)).String()

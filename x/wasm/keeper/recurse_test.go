@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	stypes "cosmossdk.io/store/types"
+
 	"github.com/CosmWasm/wasmd/x/wasm/types"
 
 	wasmvmtypes "github.com/CosmWasm/wasmvm/v2/types"
@@ -111,7 +113,7 @@ func TestGasCostOnQuery(t *testing.T) {
 			keeper.queryGasLimit = 1000
 
 			// make sure we set a limit before calling
-			ctx = ctx.WithGasMeter(sdk.NewGasMeter(tc.gasLimit))
+			ctx = ctx.WithGasMeter(stypes.NewGasMeter(tc.gasLimit))
 			require.Equal(t, uint64(0), ctx.GasMeter().GasConsumed())
 
 			// do the query
@@ -271,7 +273,7 @@ func TestLimitRecursiveQueryGas(t *testing.T) {
 			totalWasmQueryCounter = 0
 
 			// make sure we set a limit before calling
-			ctx = ctx.WithGasMeter(sdk.NewGasMeter(tc.gasLimit))
+			ctx = ctx.WithGasMeter(stypes.NewGasMeter(tc.gasLimit))
 			require.Equal(t, uint64(0), ctx.GasMeter().GasConsumed())
 
 			// prepare the query

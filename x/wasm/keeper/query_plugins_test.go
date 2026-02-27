@@ -2,14 +2,20 @@ package keeper
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"testing"
 
+	"cosmossdk.io/math"
 	"cosmossdk.io/store"
-	dbm "github.com/cometbft/cometbft-db"
+	"cosmossdk.io/store/metrics"
+	storetypes "cosmossdk.io/store/types"
+
+	cosmoslog "cosmossdk.io/log"
+	dbm "github.com/cosmos/cosmos-db"
 
 	wasmvmtypes "github.com/CosmWasm/wasmvm/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -77,7 +83,7 @@ func TestIBCQuerier(t *testing.T) {
 		wasmKeeper    *mockWasmQueryKeeper
 		channelKeeper *wasmtesting.MockChannelKeeper
 		expJsonResult string
-		expErr        *sdkerrors.Error
+		expErr        error
 	}{
 		"query port id": {
 			srcQuery: &wasmvmtypes.IBCQuery{
@@ -309,7 +315,7 @@ func TestIBCQuerier(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			h := IBCQuerier(spec.wasmKeeper, spec.channelKeeper)
 			gotResult, gotErr := h(sdk.Context{}, RandomAccountAddress(t), spec.srcQuery)
-			require.True(t, spec.expErr.Is(gotErr), "exp %v but got %#+v", spec.expErr, gotErr)
+			require.True(t, errors.Is(gotErr, spec.expErr), "exp %v but got %#+v", spec.expErr, gotErr)
 			if spec.expErr != nil {
 				return
 			}
@@ -321,7 +327,7 @@ func TestIBCQuerier(t *testing.T) {
 
 func TestBankQuerierBalance(t *testing.T) {
 	mock := bankKeeperMock{GetBalanceFn: func(ctx sdk.Context, addr sdk.AccAddress, denom string) sdk.Coin {
-		return sdk.NewCoin(denom, sdk.NewInt(1))
+		return sdk.NewCoin(denom, math.NewInt(1))
 	}}
 
 	ctx := sdk.Context{}
@@ -456,7 +462,7 @@ func TestQueryErrors(t *testing.T) {
 			expErr: wasmvmtypes.NoSuchContract{Addr: "contract-addr"},
 		},
 		"no such contract - wrapped": {
-			src:    sdkerrors.Wrap(&types.ErrNoSuchContract{Addr: "contract-addr"}, "my additional data"),
+			src:    fmt.Errorf("my additional data: %w", &types.ErrNoSuchContract{Addr: "contract-addr"}),
 			expErr: wasmvmtypes.NoSuchContract{Addr: "contract-addr"},
 		},
 	}
@@ -465,7 +471,7 @@ func TestQueryErrors(t *testing.T) {
 			mock := WasmVMQueryHandlerFn(func(ctx sdk.Context, caller sdk.AccAddress, request wasmvmtypes.QueryRequest) ([]byte, error) {
 				return nil, spec.src
 			})
-			ctx := sdk.Context{}.WithGasMeter(sdk.NewInfiniteGasMeter()).WithMultiStore(store.NewCommitMultiStore(dbm.NewMemDB()))
+			ctx := sdk.Context{}.WithGasMeter(storetypes.NewInfiniteGasMeter()).WithMultiStore(store.NewCommitMultiStore(dbm.NewMemDB(), cosmoslog.NewNopLogger(), metrics.NewNoOpMetrics()))
 			q := NewQueryHandler(ctx, mock, sdk.AccAddress{}, NewDefaultWasmGasRegister())
 			_, gotErr := q.Query(wasmvmtypes.QueryRequest{}, 1)
 			assert.Equal(t, spec.expErr, gotErr)

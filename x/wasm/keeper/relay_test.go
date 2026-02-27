@@ -3,8 +3,10 @@ package keeper
 import (
 	"encoding/json"
 	"errors"
-	"math"
+	stdmath "math"
 	"testing"
+
+	stypes "cosmossdk.io/store/types"
 
 	wasmvm "github.com/CosmWasm/wasmvm/v2"
 	wasmvmtypes "github.com/CosmWasm/wasmvm/v2/types"
@@ -27,7 +29,7 @@ func TestOnOpenChannel(t *testing.T) {
 
 	specs := map[string]struct {
 		contractAddr sdk.AccAddress
-		contractGas  sdk.Gas
+		contractGas  stypes.Gas
 		contractErr  error
 		expGas       uint64
 		expErr       bool
@@ -39,8 +41,8 @@ func TestOnOpenChannel(t *testing.T) {
 		},
 		"consume max gas": {
 			contractAddr: example.Contract,
-			contractGas:  math.MaxUint64 / DefaultGasMultiplier,
-			expGas:       math.MaxUint64 / DefaultGasMultiplier,
+			contractGas:  stdmath.MaxUint64 / DefaultGasMultiplier,
+			expGas:       stdmath.MaxUint64 / DefaultGasMultiplier,
 		},
 		"consume gas on error": {
 			contractAddr: example.Contract,
@@ -57,9 +59,9 @@ func TestOnOpenChannel(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			myChannel := wasmvmtypes.IBCChannel{Version: "my test channel"}
 			myMsg := wasmvmtypes.IBCChannelOpenMsg{OpenTry: &wasmvmtypes.IBCOpenTry{Channel: myChannel, CounterpartyVersion: "foo"}}
-			m.IBCChannelOpenFn = func(codeID wasmvm.Checksum, env wasmvmtypes.Env, msg wasmvmtypes.IBCChannelOpenMsg, store wasmvm.KVStore, goapi wasmvm.GoAPI, querier wasmvm.Querier, gasMeter wasmvm.GasMeter, gasLimit uint64, deserCost wasmvmtypes.UFraction) (uint64, error) {
+			m.IBCChannelOpenFn = func(codeID wasmvm.Checksum, env wasmvmtypes.Env, msg wasmvmtypes.IBCChannelOpenMsg, store wasmvm.KVStore, goapi wasmvm.GoAPI, querier wasmvm.Querier, gasMeter wasmvm.GasMeter, gasLimit uint64, deserCost wasmvmtypes.UFraction) (*wasmvmtypes.IBC3ChannelOpenResponse, uint64, error) {
 				assert.Equal(t, myMsg, msg)
-				return spec.contractGas * DefaultGasMultiplier, spec.contractErr
+				return nil, spec.contractGas * DefaultGasMultiplier, spec.contractErr
 			}
 
 			ctx, _ := parentCtx.CacheContext()
@@ -81,7 +83,7 @@ func TestOnOpenChannel(t *testing.T) {
 			}
 			require.NoError(t, err)
 			// verify gas consumed
-			const storageCosts = sdk.Gas(2903)
+			const storageCosts = stypes.Gas(2903)
 			assert.Equal(t, spec.expGas, ctx.GasMeter().GasConsumed()-before-storageCosts)
 		})
 	}
@@ -101,7 +103,7 @@ func TestOnConnectChannel(t *testing.T) {
 		contractResp       *wasmvmtypes.IBCBasicResponse
 		contractErr        error
 		overwriteMessenger *wasmtesting.MockMessageHandler
-		expContractGas     sdk.Gas
+		expContractGas     stypes.Gas
 		expErr             bool
 		expEventTypes      []string
 	}{
@@ -187,7 +189,7 @@ func TestOnConnectChannel(t *testing.T) {
 			}
 			require.NoError(t, err)
 			// verify gas consumed
-			const storageCosts = sdk.Gas(2903)
+			const storageCosts = stypes.Gas(2903)
 			assert.Equal(t, spec.expContractGas, ctx.GasMeter().GasConsumed()-before-storageCosts)
 			// verify msgs dispatched
 			require.Len(t, *capturedMsgs, len(spec.contractResp.Messages))
@@ -213,7 +215,7 @@ func TestOnCloseChannel(t *testing.T) {
 		contractResp       *wasmvmtypes.IBCBasicResponse
 		contractErr        error
 		overwriteMessenger *wasmtesting.MockMessageHandler
-		expContractGas     sdk.Gas
+		expContractGas     stypes.Gas
 		expErr             bool
 		expEventTypes      []string
 	}{
@@ -298,7 +300,7 @@ func TestOnCloseChannel(t *testing.T) {
 			}
 			require.NoError(t, err)
 			// verify gas consumed
-			const storageCosts = sdk.Gas(2903)
+			const storageCosts = stypes.Gas(2903)
 			assert.Equal(t, spec.expContractGas, ctx.GasMeter().GasConsumed()-before-storageCosts)
 			// verify msgs dispatched
 			require.Len(t, *capturedMsgs, len(spec.contractResp.Messages))
@@ -318,7 +320,7 @@ func TestOnRecvPacket(t *testing.T) {
 	parentCtx, keepers := CreateTestInput(t, false, SupportedFeatures, WithMessageHandler(messenger))
 	example := SeedNewContractInstance(t, parentCtx, keepers, &m)
 	const myContractGas = 40
-	const storageCosts = sdk.Gas(2903)
+	const storageCosts = stypes.Gas(2903)
 
 	specs := map[string]struct {
 		contractAddr       sdk.AccAddress
@@ -326,7 +328,7 @@ func TestOnRecvPacket(t *testing.T) {
 		contractErr        error
 		overwriteMessenger *wasmtesting.MockMessageHandler
 		mockReplyFn        func(codeID wasmvm.Checksum, env wasmvmtypes.Env, reply wasmvmtypes.Reply, store wasmvm.KVStore, goapi wasmvm.GoAPI, querier wasmvm.Querier, gasMeter wasmvm.GasMeter, gasLimit uint64, deserCost wasmvmtypes.UFraction) (*wasmvmtypes.Response, uint64, error)
-		expContractGas     sdk.Gas
+		expContractGas     stypes.Gas
 		expAck             []byte
 		expErr             bool
 		expEventTypes      []string
@@ -461,7 +463,7 @@ func TestOnRecvPacket(t *testing.T) {
 			require.Equal(t, spec.expAck, gotAck)
 
 			// verify gas consumed
-			const storageCosts = sdk.Gas(2903)
+			const storageCosts = stypes.Gas(2903)
 			assert.Equal(t, spec.expContractGas, ctx.GasMeter().GasConsumed()-before-storageCosts)
 			// verify msgs dispatched
 			require.Len(t, *capturedMsgs, len(spec.contractResp.Messages))
@@ -487,7 +489,7 @@ func TestOnAckPacket(t *testing.T) {
 		contractResp       *wasmvmtypes.IBCBasicResponse
 		contractErr        error
 		overwriteMessenger *wasmtesting.MockMessageHandler
-		expContractGas     sdk.Gas
+		expContractGas     stypes.Gas
 		expErr             bool
 		expEventTypes      []string
 	}{
@@ -568,7 +570,7 @@ func TestOnAckPacket(t *testing.T) {
 			}
 			require.NoError(t, err)
 			// verify gas consumed
-			const storageCosts = sdk.Gas(2903)
+			const storageCosts = stypes.Gas(2903)
 			assert.Equal(t, spec.expContractGas, ctx.GasMeter().GasConsumed()-before-storageCosts)
 			// verify msgs dispatched
 			require.Len(t, *capturedMsgs, len(spec.contractResp.Messages))
@@ -594,7 +596,7 @@ func TestOnTimeoutPacket(t *testing.T) {
 		contractResp       *wasmvmtypes.IBCBasicResponse
 		contractErr        error
 		overwriteMessenger *wasmtesting.MockMessageHandler
-		expContractGas     sdk.Gas
+		expContractGas     stypes.Gas
 		expErr             bool
 		expEventTypes      []string
 	}{
@@ -689,7 +691,7 @@ func TestOnTimeoutPacket(t *testing.T) {
 			}
 			require.NoError(t, err)
 			// verify gas consumed
-			const storageCosts = sdk.Gas(2903)
+			const storageCosts = stypes.Gas(2903)
 			assert.Equal(t, spec.expContractGas, ctx.GasMeter().GasConsumed()-before-storageCosts)
 			// verify msgs dispatched
 			require.Len(t, *capturedMsgs, len(spec.contractResp.Messages))

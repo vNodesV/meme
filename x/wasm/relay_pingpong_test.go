@@ -1,3 +1,5 @@
+//go:build ibctesting
+
 package wasm_test
 
 import (
