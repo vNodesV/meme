@@ -48,3 +48,6 @@ dependency-graph.png
 *.synctex.gz
 contract_tests/*
 memed
+
+# Internal — never commit agent state/instructions to public repos
+agents/
